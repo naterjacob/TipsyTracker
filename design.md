@@ -100,13 +100,13 @@ All routes prefixed `/api`. Auth middleware verifies Clerk JWT and populates `us
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| GET | `/api/feed?cursor=&limit=20` | Optional | Paginated published posts, newest first |
+| GET | `/api/feed?cursor=&limit=20` | Required | Paginated published posts, newest first |
 
 ### Posts
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| GET | `/api/posts/:id` | Optional | Full post detail with stops and bar info |
+| GET | `/api/posts/:id` | Required | Full post detail with stops and bar info |
 | POST | `/api/posts` | Required | Create a new draft (must have no existing draft) |
 | PATCH | `/api/posts/:id` | Required (owner) | Update caption of a draft |
 | POST | `/api/posts/:id/publish` | Required (owner) | Publish draft, recompute total_drinks |
@@ -124,18 +124,20 @@ All routes prefixed `/api`. Auth middleware verifies Clerk JWT and populates `us
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| GET | `/api/users/:id` | Optional | User profile + computed stats |
-| GET | `/api/users/:id/posts?cursor=` | Optional | User's published posts |
-| GET | `/api/bars` | Optional | Full bar list for the picker |
+| GET | `/api/users/:id` | Required | User profile + computed stats |
+| GET | `/api/users/:id/posts?cursor=` | Required | User's published posts |
+| GET | `/api/bars` | Required | Full bar list for the picker |
 
 ---
 
 ## Frontend Routes
 
+All routes require authentication.
+
 ```
-/                   Feed (public)
-/post/:id           Post detail
-/profile/:userId    User profile
+/                   Feed (protected)
+/post/:id           Post detail (protected)
+/profile/:userId    User profile (protected)
 /new                Create/edit draft (protected)
 ```
 
