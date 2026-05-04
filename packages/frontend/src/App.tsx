@@ -4,7 +4,7 @@ import Home from "./pages/home"
 
 const ProtectedRoutes = () => {
   const user = true;
-  if (!user) return <Navigate to= "/login"/>;
+  if (!user) return <Navigate to= "/"/>;
   else return <Outlet/>;
 }
 
