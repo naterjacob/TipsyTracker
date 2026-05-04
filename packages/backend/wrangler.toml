@@ -1,3 +1,9 @@
 name = "tipsytracker-backend"
 main = "src/index.ts"
 compatibility_date = "2025-04-27"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "tipsytracker-db"
+database_id = "b8ed5c27-4668-47a4-962e-60ef39471893"
+migrations_dir = "migrations"
