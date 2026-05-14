@@ -1,0 +1,78 @@
+/* Header */
+.header{
+position: fixed;
+width: 100%;
+height: 104px;
+filter: drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.25));
+
+box-sizing: border-box;
+
+background: #004963;
+border: 1px solid #000000;
+
+}
+
+.logo {
+/* Tipsy Tracker */
+position: fixed;
+left: 2%;
+top: 15%;
+
+font-family: 'Irish Grover', cursive;
+font-style: normal;
+font-weight: 400;
+font-size: 50px;
+line-height: 60px;
+
+color: #FFFFFF;
+
+text-align: center;
+
+text-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25);
+
+
+}
+    /* Account */
+.account {
+box-sizing: border-box;
+
+position: fixed;
+left: 90%;
+right: 2%;
+top: 6%;
+bottom: 2%;
+
+background: #FFCC00;
+border: 1px solid #004963;
+box-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25);
+
+border-radius: 50%;
+
+object-fit: cover
+}
+
+    /* Make Post */
+.post {
+position: fixed;
+left: 80%;
+right: 12%;
+top: 6%;
+bottom: 2%;
+
+background: #FFCC00;
+border: 1px solid #004963;
+
+
+font-family: 'Inter';
+font-style: Bold;
+font-weight: 400;
+font-size: 50px;
+line-height: 61px;
+text-align: center;
+
+color: #004963;
+
+text-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25);
+
+
+}
