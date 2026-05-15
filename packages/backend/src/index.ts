@@ -10,17 +10,17 @@ type BarRow = {
   created_at: number;
 };
 
-app.get("/health", (c) => c.json({ status: "ok" }));
+app.get("/api/health", (c) => c.json({ status: "ok" }));
 
-app.get("/bars", async (c) => {
+app.get("/api/bars", async (c) => {
   const result = await getDatabase(c)
     .prepare(
-      "SELECT id, name, neighborhood, created_at FROM bars ORDER BY name ASC",
+      "SELECT id, name, neighborhood, created_at FROM bars ORDER BY name ASC"
     )
     .all<BarRow>();
 
   return c.json({
-    bars: result.results,
+    bars: result.results
   });
 });
 
