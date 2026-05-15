@@ -11,7 +11,7 @@ export default function Header() {
 
     return (
         <header className="header">
-            <Link to="/home" className="logo">TypsyTracker</Link>
+            <Link to="/home" className="logo">TipsyTracker</Link>
             {/*Will change account to pop into account page later along with profile image*/}
             <button className="account" />
             <button onClick={() => setShowPost(true)} className="post">+</button>
