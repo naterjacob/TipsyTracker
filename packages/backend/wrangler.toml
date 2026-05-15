@@ -2,6 +2,10 @@ name = "tipsytracker-backend"
 main = "src/index.ts"
 compatibility_date = "2025-04-27"
 
+[[routes]]
+pattern = "tipsytracker.org/api/*"
+zone_name = "tipsytracker.org"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "tipsytracker-db"
