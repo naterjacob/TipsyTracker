@@ -1,0 +1,88 @@
+/* Full home page background */
+.home-page {
+    min-height: 100vh;
+    background: #ffffff;
+}
+
+/* Main home layout with feed on the left and suggested friends on the right */
+.home-content {
+    display: grid;
+    grid-template-columns: 720px 300px;
+    column-gap: 95px;
+    width: fit-content;
+    margin-left: auto;
+    margin-right: auto;
+    padding-top: 118px;
+    padding-bottom: 80px;
+}
+
+/* Left column that holds all posts */
+.home-feed {
+    width: 720px;
+}
+
+/* Right column for suggested friends */
+.suggested-friends {
+    width: 300px;
+    position: sticky;
+    top: 118px;
+    align-self: start;
+    font-family: Inter, Arial, sans-serif;
+    color: #000000;
+    z-index: 1;
+}
+
+/* Suggested friends heading */
+.suggested-friends-title {
+    display: block;
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 22px;
+    margin: 0 0 36px 0;
+    color: #000000;
+    visibility: visible;
+}
+
+/* Each suggested friend row */
+.friend {
+    display: flex;
+    align-items: center;
+    margin-bottom: 28px;
+}
+
+/* Suggested friend name */
+.friend p {
+    font-size: 18px;
+    line-height: 22px;
+    margin: 0;
+    color: #000000;
+}
+
+/* Suggested friend avatar placeholder */
+.friend-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    margin-right: 14px;
+}
+
+/* Suggested friend avatar colors */
+.orange {
+    background: #ff8d28;
+}
+
+.yellow {
+    background: #ffcc00;
+}
+
+.red {
+    background: #ff383c;
+}
+
+.blue {
+    background: #5a6bea;
+}
+
+.teal {
+    background: #00c3d0;
+}
