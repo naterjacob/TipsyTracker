@@ -1,7 +1,6 @@
 import Post from "./post"
 
 
-
 const posts = [
     {
         id: 1,

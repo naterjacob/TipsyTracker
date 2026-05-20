@@ -1,7 +1,5 @@
 import "./post.css"
 
-
-
 type PostProps = {
     username: string;
     avatarColor: string;
@@ -11,8 +9,6 @@ type PostProps = {
     shots: number;
     mixedDrinks: number;
 };
-
-
 
 export default function Post({
     username,
