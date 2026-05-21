@@ -13,11 +13,12 @@
     "format:check": "prettier . --check"
   },
   "dependencies": {
+    "@clerk/backend": "^3.4.11",
     "hono": "^4.7.11"
   },
   "devDependencies": {
-    "@eslint/js": "^9.26.0",
     "@cloudflare/workers-types": "^4.20250430.0",
+    "@eslint/js": "^9.26.0",
     "eslint": "^9.26.0",
     "globals": "^16.0.0",
     "prettier": "^3.5.3",

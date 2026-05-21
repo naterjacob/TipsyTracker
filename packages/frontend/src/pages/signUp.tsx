@@ -10,7 +10,7 @@ function SignUpPage() {
         <SignUp
           path="/sign-up"
           routing="path"
-          signInUrl="/"
+          signInUrl="/sign-in"
           fallbackRedirectUrl="/onboarding"
         />
       </section>

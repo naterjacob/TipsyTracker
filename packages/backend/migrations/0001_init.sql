@@ -1,10 +1,11 @@
 -- Initial schema. This file is the source of truth for the DB structure.
 
 CREATE TABLE users (
-  id           TEXT PRIMARY KEY,       -- Clerk user ID
-  username     TEXT UNIQUE NOT NULL,
+  id           TEXT PRIMARY KEY,
+  username     TEXT UNIQUE,
   display_name TEXT,
   avatar_url   TEXT,
+  bio          TEXT,
   created_at   INTEGER NOT NULL
 );
 

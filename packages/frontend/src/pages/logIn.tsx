@@ -8,7 +8,7 @@ function LogIn() {
         <p>Track your bar crawl with friends.</p>
 
         <SignIn
-          path="/"
+          path="/sign-in"
           routing="path"
           signUpUrl="/sign-up"
           fallbackRedirectUrl="/home"
