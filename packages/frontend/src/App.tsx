@@ -1,26 +1,37 @@
-import { Routes, Route, Outlet, Navigate } from 'react-router-dom';
-import LogIn from "./pages/logIn"
-import Home from "./pages/home"
+import { Routes, Route } from 'react-router-dom';
 
-const ProtectedRoutes = () => {
-  //if user isnt logged in, return to login page, needs more logic but set to true to work with pages
-  const user = true;
-  if (!user) return <Navigate to="/" />;
-  else return <Outlet />;
-}
+import LogIn from "./pages/logIn";
+import Home from "./pages/home";
+import SignUpPage from "./pages/signUp";
+import ProtectedRoute from "./components/ProtectedRoute";
+import Onboarding from "./pages/onboarding";
 
 function App() {
   return (
     <>
       <Routes>
         <Route path="/" element={<LogIn />} />
+        <Route path="/sign-up/*" element={<SignUpPage />} />
 
-        {/*Routes here just mean that, once a user is logged in it can access tha following pages*/}
-        <Route element={<ProtectedRoutes />}>
-          <Route path="/home" element={<Home />} />
-        </Route>
+        <Route
+          path="/home"
+          element={
+            <ProtectedRoute>
+              <Home />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/onboarding"
+          element={
+            <ProtectedRoute>
+              <Onboarding />
+            </ProtectedRoute>
+           }
+        />
       </Routes>
     </>
   );
 }
+
 export default App;
