@@ -10,11 +10,16 @@ export default function Header() {
     const [showPost, setShowPost] = useState(false);
 
     return (
+        
         <header className="header">
             <Link to="/home" className="logo">TipsyTracker</Link>
             {/*Will change account to pop into account page later along with profile image*/}
-            <button className="account" />
-            <button onClick={() => setShowPost(true)} className="post">+</button>
+            <div className="left">
+                <button onClick={() => setShowPost(true)} className="post">+</button>
+                <button className="account" />
+            </div>
+
+
 
             {showPost && (
 
