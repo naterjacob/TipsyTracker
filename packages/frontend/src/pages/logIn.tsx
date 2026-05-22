@@ -1,7 +1,21 @@
+import { SignIn } from "@clerk/clerk-react";
 
 function LogIn() {
-    return (
-        <h1>This is the log in page</h1>
-    );
+  return (
+    <main style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
+      <section style={{ width: "100%", maxWidth: "420px" }}>
+        <h1>Login</h1>
+        <p>Track your bar crawl with friends.</p>
+
+        <SignIn
+          path="/sign-in"
+          routing="path"
+          signUpUrl="/sign-up"
+          fallbackRedirectUrl="/home"
+        />
+      </section>
+    </main>
+  );
 }
+
 export default LogIn;

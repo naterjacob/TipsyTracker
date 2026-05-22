@@ -1,26 +1,42 @@
-import { Routes, Route, Outlet, Navigate } from 'react-router-dom';
-import LogIn from "./pages/logIn"
-import Home from "./pages/home"
+import { Routes, Route, Navigate } from "react-router-dom";
 
-const ProtectedRoutes = () => {
-  //if user isnt logged in, return to login page, needs more logic but set to true to work with pages
-  const user = true;
-  if (!user) return <Navigate to="/" />;
-  else return <Outlet />;
-}
+import LogIn from "./pages/logIn";
+import SignUpPage from "./pages/signUp";
+import Home from "./pages/home";
+import Onboarding from "./pages/onboarding";
+import ProtectedRoute from "./components/ProtectedRoute";
+import AuthSync from "./components/AuthSync";
 
 function App() {
   return (
     <>
-      <Routes>
-        <Route path="/" element={<LogIn />} />
+      <AuthSync />
 
-        {/*Routes here just mean that, once a user is logged in it can access tha following pages*/}
-        <Route element={<ProtectedRoutes />}>
-          <Route path="/home" element={<Home />} />
-        </Route>
+      <Routes>
+        <Route path="/" element={<Navigate to="/sign-in" replace />} />
+        <Route path="/sign-in/*" element={<LogIn />} />
+        <Route path="/sign-up/*" element={<SignUpPage />} />
+
+        <Route
+          path="/home"
+          element={
+            <ProtectedRoute>
+              <Home />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/onboarding"
+          element={
+            <ProtectedRoute>
+              <Onboarding />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     </>
   );
 }
+
 export default App;
