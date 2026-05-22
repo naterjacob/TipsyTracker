@@ -1,7 +1,11 @@
 import { Hono } from "hono";
 import type { MiddlewareHandler } from "hono";
 import { createClerkClient } from "@clerk/backend";
-import { getDatabase, type AppBindings, type AppVariables } from "./db";
+import {
+  getDatabase,
+  type AppBindings,
+  type AppVariables
+} from "./db";
 import { cors } from "hono/cors";
 
 type AppEnv = {
@@ -16,7 +20,7 @@ app.use(
   cors({
     origin: "http://localhost:5173",
     allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allowHeaders: ["Content-Type", "Authorization"],
+    allowHeaders: ["Content-Type", "Authorization"]
   })
 );
 
@@ -34,7 +38,10 @@ type ProfileBody = {
   bio?: string;
 };
 
-const requireAuth: MiddlewareHandler<AppEnv> = async (c, next) => {
+const requireAuth: MiddlewareHandler<AppEnv> = async (
+  c,
+  next
+) => {
   const authHeader = c.req.header("Authorization");
 
   if (!authHeader?.startsWith("Bearer ")) {
@@ -43,10 +50,12 @@ const requireAuth: MiddlewareHandler<AppEnv> = async (c, next) => {
 
   const clerk = createClerkClient({
     secretKey: c.env.CLERK_SECRET_KEY,
-    publishableKey: c.env.CLERK_PUBLISHABLE_KEY,
+    publishableKey: c.env.CLERK_PUBLISHABLE_KEY
   });
 
-  const requestState = await clerk.authenticateRequest(c.req.raw);
+  const requestState = await clerk.authenticateRequest(
+    c.req.raw
+  );
 
   const auth = requestState.toAuth();
 
@@ -69,7 +78,7 @@ app.get("/api/bars", async (c) => {
     .all<BarRow>();
 
   return c.json({
-    bars: result.results,
+    bars: result.results
   });
 });
 
@@ -100,19 +109,45 @@ app.patch("/api/users/me/profile", requireAuth, async (c) => {
   const bio = body.bio?.trim().slice(0, 50) || null;
 
   if (!username || !displayName) {
-    return c.json({ error: "Username and display name are required" }, 400);
+    return c.json(
+      { error: "Username and display name are required" },
+      400
+    );
   }
 
-  await getDatabase(c)
-    .prepare(
-      `
-      UPDATE users
-      SET username = ?, display_name = ?, avatar_url = ?, bio = ?
-      WHERE id = ?
-      `
-    )
-    .bind(username, displayName, avatarUrl, bio, userId)
-    .run();
+  try {
+    const result = await getDatabase(c)
+      .prepare(
+        `
+        UPDATE users
+        SET username = ?, display_name = ?, avatar_url = ?, bio = ?
+        WHERE id = ?
+        `
+      )
+      .bind(username, displayName, avatarUrl, bio, userId)
+      .run();
+
+    if ((result.meta.changes ?? 0) === 0) {
+      return c.json(
+        { error: "User not found. Run auth sync first." },
+        404
+      );
+    }
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : String(error);
+    if (
+      message.includes(
+        "UNIQUE constraint failed: users.username"
+      )
+    ) {
+      return c.json(
+        { error: "Username is already taken" },
+        409
+      );
+    }
+    throw error;
+  }
 
   return c.json({ ok: true });
 });
