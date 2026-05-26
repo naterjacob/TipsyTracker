@@ -8,7 +8,12 @@ We decided to use Clerk for our security and authentication. Clerk is a free to 
 In this project we have integrated Clerk into the frontend and backend. After a user signs up and verifies their email, the frontend obtains a Clerk session token and sends it to the Hono backend in the Authorization header. The backend then verifies the token using Clerk before allowing access to protected API routes. Once verified, the backend creates or updates the user’s record in the D1 database, where app-specific information such as usernames, display names, avatars, and bios are stored. This separation allows for an extra layer of security and keeps the process centeral to Clerk and then our application database stores the information needed for the project like profiles, posts, and other needed data.
 
 Our Sequence Diagram:
+
+
 <img width="596" height="723" alt="image" src="https://github.com/user-attachments/assets/8e0880df-c011-4e29-b017-24e02e52b341" />
+
+
+
 Text Version:
 sequenceDiagram
     actor User
