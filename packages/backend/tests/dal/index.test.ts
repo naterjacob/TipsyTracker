@@ -1,31 +1,49 @@
 import { describe, expect, it, vi } from "vitest";
-import { createDraftPost, publishDraftPost, syncUser, updateDraftCaption } from "../../src/dal";
+import {
+  createDraftPost,
+  publishDraftPost,
+  syncUser,
+  updateDraftCaption
+} from "../../src/dal";
 
 type MockPrepared = {
   bind: (...args: unknown[]) => MockPrepared;
   first: <T>() => Promise<T | null>;
   all: <T>() => Promise<{ results: T[] }>;
-  run: () => Promise<{ success: boolean; meta: { changes?: number } }>;
+  run: () => Promise<{
+    success: boolean;
+    meta: { changes?: number };
+  }>;
 };
 
-const createMockPrepared = (overrides: Partial<MockPrepared> = {}): MockPrepared => ({
+const createMockPrepared = (
+  overrides: Partial<MockPrepared> = {}
+): MockPrepared => ({
   bind: vi.fn(() => prepared),
   first: vi.fn(async () => null),
   all: vi.fn(async () => ({ results: [] })),
-  run: vi.fn(async () => ({ success: true, meta: { changes: 1 } })),
+  run: vi.fn(async () => ({
+    success: true,
+    meta: { changes: 1 }
+  })),
   ...overrides
 });
 
 let prepared = createMockPrepared();
 
-const createMockDb = (prepareImpl: (query: string) => MockPrepared): D1Database =>
+const createMockDb = (
+  prepareImpl: (query: string) => MockPrepared
+): D1Database =>
   ({
     prepare: vi.fn(prepareImpl)
   }) as unknown as D1Database;
 
 describe("DAL", () => {
   it("syncUser upserts by id", async () => {
-    const run = vi.fn(async () => ({ success: true, meta: {} }));
+    const run = vi.fn(async () => ({
+      success: true,
+      meta: {}
+    }));
     const bind = vi.fn(() => ({ run }));
     const prepare = vi.fn(() => ({ bind }));
     const db = { prepare } as unknown as D1Database;
@@ -38,8 +56,16 @@ describe("DAL", () => {
       now: 100
     });
 
-    expect(prepare).toHaveBeenCalledWith(expect.stringContaining("ON CONFLICT(id) DO UPDATE"));
-    expect(bind).toHaveBeenCalledWith("user_1", "tester", "Test User", null, 100);
+    expect(prepare).toHaveBeenCalledWith(
+      expect.stringContaining("ON CONFLICT(id) DO UPDATE")
+    );
+    expect(bind).toHaveBeenCalledWith(
+      "user_1",
+      "tester",
+      "Test User",
+      null,
+      100
+    );
     expect(run).toHaveBeenCalled();
   });
 
@@ -49,7 +75,10 @@ describe("DAL", () => {
     const prepare = vi.fn(() => ({ bind }));
     const db = { prepare } as unknown as D1Database;
 
-    const result = await createDraftPost(db, { userId: "user_1", now: 100 });
+    const result = await createDraftPost(db, {
+      userId: "user_1",
+      now: 100
+    });
 
     expect(result).toBeNull();
   });
@@ -57,7 +86,11 @@ describe("DAL", () => {
   it("updateDraftCaption returns updated post when owned draft exists", async () => {
     let selectCount = 0;
     const db = createMockDb((query) => {
-      if (query.includes("SELECT id FROM posts WHERE id = ? AND user_id = ? AND status = 'draft'")) {
+      if (
+        query.includes(
+          "SELECT id FROM posts WHERE id = ? AND user_id = ? AND status = 'draft'"
+        )
+      ) {
         const ownerCheck = createMockPrepared({
           bind: vi.fn(() => ({
             first: vi.fn(async () => ({ id: "post_1" }))
@@ -65,10 +98,17 @@ describe("DAL", () => {
         });
         return ownerCheck;
       }
-      if (query.includes("UPDATE posts SET caption = ? WHERE id = ?")) {
+      if (
+        query.includes(
+          "UPDATE posts SET caption = ? WHERE id = ?"
+        )
+      ) {
         return createMockPrepared({
           bind: vi.fn(() => ({
-            run: vi.fn(async () => ({ success: true, meta: { changes: 1 } }))
+            run: vi.fn(async () => ({
+              success: true,
+              meta: { changes: 1 }
+            }))
           })) as unknown as MockPrepared["bind"]
         });
       }
@@ -101,17 +141,28 @@ describe("DAL", () => {
 
   it("publishDraftPost returns no_stops for empty drafts", async () => {
     const db = createMockDb((query) => {
-      if (query.includes("SELECT id FROM posts WHERE id = ? AND user_id = ? AND status = 'draft'")) {
+      if (
+        query.includes(
+          "SELECT id FROM posts WHERE id = ? AND user_id = ? AND status = 'draft'"
+        )
+      ) {
         return createMockPrepared({
           bind: vi.fn(() => ({
             first: vi.fn(async () => ({ id: "post_1" }))
           })) as unknown as MockPrepared["bind"]
         });
       }
-      if (query.includes("SELECT COALESCE(SUM(drink_count), 0) AS total_drinks, COUNT(*) AS stop_count")) {
+      if (
+        query.includes(
+          "SELECT COALESCE(SUM(drink_count), 0) AS total_drinks, COUNT(*) AS stop_count"
+        )
+      ) {
         return createMockPrepared({
           bind: vi.fn(() => ({
-            first: vi.fn(async () => ({ total_drinks: 0, stop_count: 0 }))
+            first: vi.fn(async () => ({
+              total_drinks: 0,
+              stop_count: 0
+            }))
           })) as unknown as MockPrepared["bind"]
         });
       }

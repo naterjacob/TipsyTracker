@@ -30,10 +30,17 @@ CREATE TABLE IF NOT EXISTS `stops` (
 --> statement-breakpoint
 CREATE TABLE IF NOT EXISTS `users` (
 	`id` text PRIMARY KEY NOT NULL,
-	`username` text NOT NULL,
+	`username` text,
 	`display_name` text,
 	`avatar_url` text,
+	`bio` text,
 	`created_at` integer NOT NULL
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX IF NOT EXISTS `users_username_unique` ON `users` (`username`);
+--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `idx_posts_user` ON `posts` (`user_id`);
+--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `idx_posts_status` ON `posts` (`status`,`published_at`);
+--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `idx_stops_post` ON `stops` (`post_id`,`stop_order`);

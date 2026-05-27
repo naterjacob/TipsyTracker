@@ -2,7 +2,11 @@ import { Hono, type Context } from "hono";
 import type { MiddlewareHandler } from "hono";
 import { createClerkClient } from "@clerk/backend";
 import { cors } from "hono/cors";
-import { getDatabase, type AppBindings, type AppVariables } from "./db";
+import {
+  getDatabase,
+  type AppBindings,
+  type AppVariables
+} from "./db";
 import {
   addDraftStop,
   createDraftPost,
@@ -35,7 +39,11 @@ app.use(
   })
 );
 
-const clampLimit = (rawLimit: string | undefined, defaultLimit = 20, maxLimit = 50) => {
+const clampLimit = (
+  rawLimit: string | undefined,
+  defaultLimit = 20,
+  maxLimit = 50
+) => {
   const parsed = Number.parseInt(rawLimit ?? "", 10);
   if (Number.isNaN(parsed) || parsed <= 0) {
     return defaultLimit;
@@ -58,7 +66,10 @@ type ProfileBody = {
   bio?: string;
 };
 
-const requireAuth: MiddlewareHandler<AppEnv> = async (c, next) => {
+const requireAuth: MiddlewareHandler<AppEnv> = async (
+  c,
+  next
+) => {
   const authHeader = c.req.header("Authorization");
 
   if (!authHeader?.startsWith("Bearer ")) {
@@ -70,7 +81,9 @@ const requireAuth: MiddlewareHandler<AppEnv> = async (c, next) => {
     publishableKey: c.env.CLERK_PUBLISHABLE_KEY
   });
 
-  const requestState = await clerk.authenticateRequest(c.req.raw);
+  const requestState = await clerk.authenticateRequest(
+    c.req.raw
+  );
 
   const auth = requestState.toAuth();
 
@@ -112,7 +125,10 @@ app.get("/api/feed", async (c) => {
   const limit = clampLimit(c.req.query("limit"));
   const cursor = parseCursor(c.req.query("cursor"));
 
-  const { posts, nextCursor } = await listFeed(getDatabase(c), { limit, cursor });
+  const { posts, nextCursor } = await listFeed(getDatabase(c), {
+    limit,
+    cursor
+  });
   return c.json({ posts, nextCursor });
 });
 
@@ -136,7 +152,13 @@ app.post("/api/posts", async (c) => {
     now: Math.floor(Date.now() / 1000)
   });
   if (!post) {
-    return c.json({ error: "Conflict", message: "User already has a draft post." }, 409);
+    return c.json(
+      {
+        error: "Conflict",
+        message: "User already has a draft post."
+      },
+      409
+    );
   }
   return c.json({ post }, 201);
 });
@@ -146,7 +168,9 @@ app.patch("/api/posts/:id", async (c) => {
   if (auth) return auth;
   const userId = c.get("userId");
   const postId = c.req.param("id");
-  const payload = (await c.req.json().catch(() => null)) as { caption?: string } | null;
+  const payload = (await c.req.json().catch(() => null)) as {
+    caption?: string;
+  } | null;
 
   const post = await updateDraftCaption(getDatabase(c), {
     postId,
@@ -168,9 +192,17 @@ app.post("/api/posts/:id/publish", async (c) => {
     userId,
     publishedAt: Math.floor(Date.now() / 1000)
   });
-  if (result.kind === "not_found") return c.json({ error: "Not Found" }, 404);
+  if (result.kind === "not_found")
+    return c.json({ error: "Not Found" }, 404);
   if (result.kind === "no_stops") {
-    return c.json({ error: "Bad Request", message: "Draft must have at least one stop before publish." }, 400);
+    return c.json(
+      {
+        error: "Bad Request",
+        message:
+          "Draft must have at least one stop before publish."
+      },
+      400
+    );
   }
   return c.json({ post: result.post });
 });
@@ -180,7 +212,10 @@ app.delete("/api/posts/:id", async (c) => {
   if (auth) return auth;
   const userId = c.get("userId");
   const postId = c.req.param("id");
-  const deleted = await deleteDraftPost(getDatabase(c), { postId, userId });
+  const deleted = await deleteDraftPost(getDatabase(c), {
+    postId,
+    userId
+  });
   if (!deleted) {
     return c.json({ error: "Not Found" }, 404);
   }
@@ -192,12 +227,18 @@ app.post("/api/posts/:id/stops", async (c) => {
   if (auth) return auth;
   const userId = c.get("userId");
   const postId = c.req.param("id");
-  const payload = (await c.req.json().catch(() => null)) as
-    | { barId?: string; drinkCount?: number; note?: string | null; arrivedAt?: number }
-    | null;
+  const payload = (await c.req.json().catch(() => null)) as {
+    barId?: string;
+    drinkCount?: number;
+    note?: string | null;
+    arrivedAt?: number;
+  } | null;
 
   if (!payload?.barId) {
-    return c.json({ error: "Bad Request", message: "barId is required." }, 400);
+    return c.json(
+      { error: "Bad Request", message: "barId is required." },
+      400
+    );
   }
   const stop = await addDraftStop(getDatabase(c), {
     postId,
@@ -205,7 +246,8 @@ app.post("/api/posts/:id/stops", async (c) => {
     barId: payload.barId,
     drinkCount: payload.drinkCount ?? 0,
     note: payload.note ?? null,
-    arrivedAt: payload.arrivedAt ?? Math.floor(Date.now() / 1000)
+    arrivedAt:
+      payload.arrivedAt ?? Math.floor(Date.now() / 1000)
   });
   if (!stop) return c.json({ error: "Not Found" }, 404);
 
@@ -218,9 +260,10 @@ app.patch("/api/posts/:id/stops/:stopId", async (c) => {
   const userId = c.get("userId");
   const postId = c.req.param("id");
   const stopId = c.req.param("stopId");
-  const payload = (await c.req.json().catch(() => null)) as
-    | { drinkCount?: number; note?: string | null }
-    | null;
+  const payload = (await c.req.json().catch(() => null)) as {
+    drinkCount?: number;
+    note?: string | null;
+  } | null;
 
   const stop = await updateDraftStop(getDatabase(c), {
     postId,
@@ -240,7 +283,11 @@ app.delete("/api/posts/:id/stops/:stopId", async (c) => {
   const postId = c.req.param("id");
   const stopId = c.req.param("stopId");
 
-  const deleted = await deleteDraftStop(getDatabase(c), { postId, stopId, userId });
+  const deleted = await deleteDraftStop(getDatabase(c), {
+    postId,
+    stopId,
+    userId
+  });
   if (!deleted) {
     return c.json({ error: "Not Found" }, 404);
   }
@@ -262,7 +309,10 @@ app.get("/api/users/:id/posts", async (c) => {
   const userId = c.req.param("id");
   const limit = clampLimit(c.req.query("limit"));
   const cursor = parseCursor(c.req.query("cursor"));
-  const { posts, nextCursor } = await listUserPosts(getDatabase(c), { userId, limit, cursor });
+  const { posts, nextCursor } = await listUserPosts(
+    getDatabase(c),
+    { userId, limit, cursor }
+  );
   return c.json({ posts, nextCursor });
 });
 
@@ -276,7 +326,10 @@ app.patch("/api/users/me/profile", requireAuth, async (c) => {
   const bio = body.bio?.trim().slice(0, 50) || null;
 
   if (!username || !displayName) {
-    return c.json({ error: "Username and display name are required" }, 400);
+    return c.json(
+      { error: "Username and display name are required" },
+      400
+    );
   }
 
   try {
@@ -292,12 +345,23 @@ app.patch("/api/users/me/profile", requireAuth, async (c) => {
       .run();
 
     if ((result.meta.changes ?? 0) === 0) {
-      return c.json({ error: "User not found. Run auth sync first." }, 404);
+      return c.json(
+        { error: "User not found. Run auth sync first." },
+        404
+      );
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (message.includes("UNIQUE constraint failed: users.username")) {
-      return c.json({ error: "Username is already taken" }, 409);
+    const message =
+      error instanceof Error ? error.message : String(error);
+    if (
+      message.includes(
+        "UNIQUE constraint failed: users.username"
+      )
+    ) {
+      return c.json(
+        { error: "Username is already taken" },
+        409
+      );
     }
     throw error;
   }

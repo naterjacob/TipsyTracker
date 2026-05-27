@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "f56a2273-5b69-4c35-95af-d93d71ee2f79",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "d81129f4-ba97-4cc0-bd1e-44605f97ff2e",
+  "prevId": "f56a2273-5b69-4c35-95af-d93d71ee2f79",
   "tables": {
     "bars": {
       "name": "bars",
@@ -97,14 +97,34 @@
           "autoincrement": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "idx_posts_user": {
+          "name": "idx_posts_user",
+          "columns": [
+            "user_id"
+          ],
+          "isUnique": false
+        },
+        "idx_posts_status": {
+          "name": "idx_posts_status",
+          "columns": [
+            "status",
+            "published_at"
+          ],
+          "isUnique": false
+        }
+      },
       "foreignKeys": {
         "posts_user_id_users_id_fk": {
           "name": "posts_user_id_users_id_fk",
           "tableFrom": "posts",
           "tableTo": "users",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -167,14 +187,27 @@
           "autoincrement": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "idx_stops_post": {
+          "name": "idx_stops_post",
+          "columns": [
+            "post_id",
+            "stop_order"
+          ],
+          "isUnique": false
+        }
+      },
       "foreignKeys": {
         "stops_post_id_posts_id_fk": {
           "name": "stops_post_id_posts_id_fk",
           "tableFrom": "stops",
           "tableTo": "posts",
-          "columnsFrom": ["post_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "post_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -182,8 +215,12 @@
           "name": "stops_bar_id_bars_id_fk",
           "tableFrom": "stops",
           "tableTo": "bars",
-          "columnsFrom": ["bar_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "bar_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -206,7 +243,7 @@
           "name": "username",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         },
         "display_name": {
@@ -223,6 +260,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "bio": {
+          "name": "bio",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "integer",
@@ -234,7 +278,9 @@
       "indexes": {
         "users_username_unique": {
           "name": "users_username_unique",
-          "columns": ["username"],
+          "columns": [
+            "username"
+          ],
           "isUnique": true
         }
       },

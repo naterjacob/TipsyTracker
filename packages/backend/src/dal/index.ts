@@ -1,15 +1,28 @@
-import type { BarRow, PostRow, StopRow, UserRow } from "../db/schema";
+import type {
+  BarRow,
+  PostRow,
+  StopRow,
+  UserRow
+} from "../db/schema";
 
 export const listBars = async (db: D1Database) => {
   const result = await db
-    .prepare("SELECT id, name, neighborhood, created_at FROM bars ORDER BY name ASC")
+    .prepare(
+      "SELECT id, name, neighborhood, created_at FROM bars ORDER BY name ASC"
+    )
     .all<BarRow>();
   return result.results;
 };
 
 export const syncUser = async (
   db: D1Database,
-  input: { userId: string; username: string | null; displayName: string | null; avatarUrl: string | null; now: number }
+  input: {
+    userId: string;
+    username: string | null;
+    displayName: string | null;
+    avatarUrl: string | null;
+    now: number;
+  }
 ) => {
   await db
     .prepare(
@@ -20,11 +33,20 @@ export const syncUser = async (
          display_name = excluded.display_name,
          avatar_url = excluded.avatar_url`
     )
-    .bind(input.userId, input.username, input.displayName, input.avatarUrl, input.now)
+    .bind(
+      input.userId,
+      input.username,
+      input.displayName,
+      input.avatarUrl,
+      input.now
+    )
     .run();
 };
 
-export const listFeed = async (db: D1Database, input: { limit: number; cursor: number | null }) => {
+export const listFeed = async (
+  db: D1Database,
+  input: { limit: number; cursor: number | null }
+) => {
   const query = input.cursor
     ? `SELECT p.id, p.user_id, p.caption, p.status, p.total_drinks, p.created_at, p.published_at,
               u.username, u.display_name, u.avatar_url, COUNT(s.id) AS bar_count
@@ -47,8 +69,12 @@ export const listFeed = async (db: D1Database, input: { limit: number; cursor: n
 
   const statement = db.prepare(query);
   const result = input.cursor
-    ? await statement.bind(input.cursor, input.limit).all<Record<string, unknown>>()
-    : await statement.bind(input.limit).all<Record<string, unknown>>();
+    ? await statement
+        .bind(input.cursor, input.limit)
+        .all<Record<string, unknown>>()
+    : await statement
+        .bind(input.limit)
+        .all<Record<string, unknown>>();
   const posts = result.results.map((row) => ({
     id: row.id,
     userId: row.user_id,
@@ -66,11 +92,17 @@ export const listFeed = async (db: D1Database, input: { limit: number; cursor: n
   }));
   const last = posts.at(-1);
   const nextCursor =
-    posts.length === input.limit && typeof last?.publishedAt === "number" ? last.publishedAt : null;
+    posts.length === input.limit &&
+    typeof last?.publishedAt === "number"
+      ? last.publishedAt
+      : null;
   return { posts, nextCursor };
 };
 
-export const getPostDetails = async (db: D1Database, postId: string) => {
+export const getPostDetails = async (
+  db: D1Database,
+  postId: string
+) => {
   const post = await db
     .prepare(
       `SELECT p.id, p.user_id, p.caption, p.status, p.total_drinks, p.created_at, p.published_at,
@@ -123,9 +155,14 @@ export const getPostDetails = async (db: D1Database, postId: string) => {
   };
 };
 
-export const createDraftPost = async (db: D1Database, input: { userId: string; now: number }) => {
+export const createDraftPost = async (
+  db: D1Database,
+  input: { userId: string; now: number }
+) => {
   const existingDraft = await db
-    .prepare("SELECT id FROM posts WHERE user_id = ? AND status = 'draft' LIMIT 1")
+    .prepare(
+      "SELECT id FROM posts WHERE user_id = ? AND status = 'draft' LIMIT 1"
+    )
     .bind(input.userId)
     .first<{ id: string }>();
   if (existingDraft) return null;
@@ -137,22 +174,38 @@ export const createDraftPost = async (db: D1Database, input: { userId: string; n
     )
     .bind(postId, input.userId, input.now)
     .run();
-  return { id: postId, userId: input.userId, status: "draft" as const, createdAt: input.now };
+  return {
+    id: postId,
+    userId: input.userId,
+    status: "draft" as const,
+    createdAt: input.now
+  };
 };
 
 export const updateDraftCaption = async (
   db: D1Database,
-  input: { postId: string; userId: string; caption: string | null }
+  input: {
+    postId: string;
+    userId: string;
+    caption: string | null;
+  }
 ) => {
   const ownerPost = await db
-    .prepare("SELECT id FROM posts WHERE id = ? AND user_id = ? AND status = 'draft' LIMIT 1")
+    .prepare(
+      "SELECT id FROM posts WHERE id = ? AND user_id = ? AND status = 'draft' LIMIT 1"
+    )
     .bind(input.postId, input.userId)
     .first<{ id: string }>();
   if (!ownerPost) return null;
 
-  await db.prepare("UPDATE posts SET caption = ? WHERE id = ?").bind(input.caption, input.postId).run();
+  await db
+    .prepare("UPDATE posts SET caption = ? WHERE id = ?")
+    .bind(input.caption, input.postId)
+    .run();
   return db
-    .prepare("SELECT id, user_id, caption, status, total_drinks, created_at, published_at FROM posts WHERE id = ?")
+    .prepare(
+      "SELECT id, user_id, caption, status, total_drinks, created_at, published_at FROM posts WHERE id = ?"
+    )
     .bind(input.postId)
     .first<PostRow>();
 };
@@ -162,31 +215,49 @@ export const publishDraftPost = async (
   input: { postId: string; userId: string; publishedAt: number }
 ) => {
   const ownerPost = await db
-    .prepare("SELECT id FROM posts WHERE id = ? AND user_id = ? AND status = 'draft' LIMIT 1")
+    .prepare(
+      "SELECT id FROM posts WHERE id = ? AND user_id = ? AND status = 'draft' LIMIT 1"
+    )
     .bind(input.postId, input.userId)
     .first<{ id: string }>();
   if (!ownerPost) return { kind: "not_found" as const };
 
   const totalRow = await db
-    .prepare("SELECT COALESCE(SUM(drink_count), 0) AS total_drinks, COUNT(*) AS stop_count FROM stops WHERE post_id = ?")
+    .prepare(
+      "SELECT COALESCE(SUM(drink_count), 0) AS total_drinks, COUNT(*) AS stop_count FROM stops WHERE post_id = ?"
+    )
     .bind(input.postId)
     .first<{ total_drinks: number; stop_count: number }>();
-  if (!totalRow || totalRow.stop_count < 1) return { kind: "no_stops" as const };
+  if (!totalRow || totalRow.stop_count < 1)
+    return { kind: "no_stops" as const };
 
   await db
-    .prepare("UPDATE posts SET status = 'published', total_drinks = ?, published_at = ? WHERE id = ?")
-    .bind(totalRow.total_drinks, input.publishedAt, input.postId)
+    .prepare(
+      "UPDATE posts SET status = 'published', total_drinks = ?, published_at = ? WHERE id = ?"
+    )
+    .bind(
+      totalRow.total_drinks,
+      input.publishedAt,
+      input.postId
+    )
     .run();
   const post = await db
-    .prepare("SELECT id, user_id, caption, status, total_drinks, created_at, published_at FROM posts WHERE id = ?")
+    .prepare(
+      "SELECT id, user_id, caption, status, total_drinks, created_at, published_at FROM posts WHERE id = ?"
+    )
     .bind(input.postId)
     .first<PostRow>();
   return { kind: "ok" as const, post };
 };
 
-export const deleteDraftPost = async (db: D1Database, input: { postId: string; userId: string }) => {
+export const deleteDraftPost = async (
+  db: D1Database,
+  input: { postId: string; userId: string }
+) => {
   const result = await db
-    .prepare("DELETE FROM posts WHERE id = ? AND user_id = ? AND status = 'draft'")
+    .prepare(
+      "DELETE FROM posts WHERE id = ? AND user_id = ? AND status = 'draft'"
+    )
     .bind(input.postId, input.userId)
     .run();
   return result.success && (result.meta.changes ?? 0) > 0;
@@ -204,13 +275,17 @@ export const addDraftStop = async (
   }
 ) => {
   const ownerPost = await db
-    .prepare("SELECT id FROM posts WHERE id = ? AND user_id = ? AND status = 'draft' LIMIT 1")
+    .prepare(
+      "SELECT id FROM posts WHERE id = ? AND user_id = ? AND status = 'draft' LIMIT 1"
+    )
     .bind(input.postId, input.userId)
     .first<{ id: string }>();
   if (!ownerPost) return null;
 
   const orderRow = await db
-    .prepare("SELECT COALESCE(MAX(stop_order), 0) AS max_order FROM stops WHERE post_id = ?")
+    .prepare(
+      "SELECT COALESCE(MAX(stop_order), 0) AS max_order FROM stops WHERE post_id = ?"
+    )
     .bind(input.postId)
     .first<{ max_order: number }>();
   const stopId = crypto.randomUUID();
@@ -220,48 +295,82 @@ export const addDraftStop = async (
     .prepare(
       "INSERT INTO stops (id, post_id, bar_id, drink_count, note, stop_order, arrived_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
     )
-    .bind(stopId, input.postId, input.barId, Math.max(0, input.drinkCount), input.note, stopOrder, input.arrivedAt)
+    .bind(
+      stopId,
+      input.postId,
+      input.barId,
+      Math.max(0, input.drinkCount),
+      input.note,
+      stopOrder,
+      input.arrivedAt
+    )
     .run();
 
   return db
-    .prepare("SELECT id, post_id, bar_id, drink_count, note, stop_order, arrived_at FROM stops WHERE id = ?")
+    .prepare(
+      "SELECT id, post_id, bar_id, drink_count, note, stop_order, arrived_at FROM stops WHERE id = ?"
+    )
     .bind(stopId)
     .first<StopRow>();
 };
 
 export const updateDraftStop = async (
   db: D1Database,
-  input: { postId: string; stopId: string; userId: string; drinkCount?: number; note?: string | null }
+  input: {
+    postId: string;
+    stopId: string;
+    userId: string;
+    drinkCount?: number;
+    note?: string | null;
+  }
 ) => {
   const ownerPost = await db
-    .prepare("SELECT id FROM posts WHERE id = ? AND user_id = ? AND status = 'draft' LIMIT 1")
+    .prepare(
+      "SELECT id FROM posts WHERE id = ? AND user_id = ? AND status = 'draft' LIMIT 1"
+    )
     .bind(input.postId, input.userId)
     .first<{ id: string }>();
   if (!ownerPost) return null;
 
   const existing = await db
-    .prepare("SELECT id, drink_count, note FROM stops WHERE id = ? AND post_id = ? LIMIT 1")
+    .prepare(
+      "SELECT id, drink_count, note FROM stops WHERE id = ? AND post_id = ? LIMIT 1"
+    )
     .bind(input.stopId, input.postId)
-    .first<{ id: string; drink_count: number; note: string | null }>();
+    .first<{
+      id: string;
+      drink_count: number;
+      note: string | null;
+    }>();
   if (!existing) return null;
 
   const drinkCount = input.drinkCount ?? existing.drink_count;
-  const note = input.note === undefined ? existing.note : input.note;
+  const note =
+    input.note === undefined ? existing.note : input.note;
 
   await db
-    .prepare("UPDATE stops SET drink_count = ?, note = ? WHERE id = ?")
+    .prepare(
+      "UPDATE stops SET drink_count = ?, note = ? WHERE id = ?"
+    )
     .bind(Math.max(0, drinkCount), note ?? null, input.stopId)
     .run();
 
   return db
-    .prepare("SELECT id, post_id, bar_id, drink_count, note, stop_order, arrived_at FROM stops WHERE id = ?")
+    .prepare(
+      "SELECT id, post_id, bar_id, drink_count, note, stop_order, arrived_at FROM stops WHERE id = ?"
+    )
     .bind(input.stopId)
     .first<StopRow>();
 };
 
-export const deleteDraftStop = async (db: D1Database, input: { postId: string; stopId: string; userId: string }) => {
+export const deleteDraftStop = async (
+  db: D1Database,
+  input: { postId: string; stopId: string; userId: string }
+) => {
   const ownerPost = await db
-    .prepare("SELECT id FROM posts WHERE id = ? AND user_id = ? AND status = 'draft' LIMIT 1")
+    .prepare(
+      "SELECT id FROM posts WHERE id = ? AND user_id = ? AND status = 'draft' LIMIT 1"
+    )
     .bind(input.postId, input.userId)
     .first<{ id: string }>();
   if (!ownerPost) return false;
@@ -273,9 +382,14 @@ export const deleteDraftStop = async (db: D1Database, input: { postId: string; s
   return result.success && (result.meta.changes ?? 0) > 0;
 };
 
-export const getUserProfile = async (db: D1Database, userId: string) => {
+export const getUserProfile = async (
+  db: D1Database,
+  userId: string
+) => {
   const user = await db
-    .prepare("SELECT id, username, display_name, avatar_url, created_at FROM users WHERE id = ?")
+    .prepare(
+      "SELECT id, username, display_name, avatar_url, created_at FROM users WHERE id = ?"
+    )
     .bind(userId)
     .first<UserRow>();
   if (!user) return null;
@@ -291,7 +405,11 @@ export const getUserProfile = async (db: D1Database, userId: string) => {
        WHERE p.user_id = ? AND p.status = 'published'`
     )
     .bind(userId)
-    .first<{ total_drinks: number; unique_bars_visited: number; total_nights_out: number }>();
+    .first<{
+      total_drinks: number;
+      unique_bars_visited: number;
+      total_nights_out: number;
+    }>();
 
   const mostVisited = await db
     .prepare(
@@ -326,7 +444,11 @@ export const getUserProfile = async (db: D1Database, userId: string) => {
 
 export const listUserPosts = async (
   db: D1Database,
-  input: { userId: string; limit: number; cursor: number | null }
+  input: {
+    userId: string;
+    limit: number;
+    cursor: number | null;
+  }
 ) => {
   const query = input.cursor
     ? `SELECT id, user_id, caption, status, total_drinks, created_at, published_at
@@ -342,11 +464,18 @@ export const listUserPosts = async (
 
   const statement = db.prepare(query);
   const result = input.cursor
-    ? await statement.bind(input.userId, input.cursor, input.limit).all<PostRow>()
-    : await statement.bind(input.userId, input.limit).all<PostRow>();
+    ? await statement
+        .bind(input.userId, input.cursor, input.limit)
+        .all<PostRow>()
+    : await statement
+        .bind(input.userId, input.limit)
+        .all<PostRow>();
   const posts = result.results;
   const last = posts.at(-1);
   const nextCursor =
-    posts.length === input.limit && typeof last?.publishedAt === "number" ? last.publishedAt : null;
+    posts.length === input.limit &&
+    typeof last?.publishedAt === "number"
+      ? last.publishedAt
+      : null;
   return { posts, nextCursor };
 };
