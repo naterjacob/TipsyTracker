@@ -1,10 +1,10 @@
 import Header from "../components/header"
 
-function Home() {
+function Account() {
 
     return (
         <Header></Header>
     );
 
 }
-export default Home;
+export default Account;

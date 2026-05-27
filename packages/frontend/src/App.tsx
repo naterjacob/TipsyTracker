@@ -4,6 +4,7 @@ import LogIn from "./pages/logIn";
 import SignUpPage from "./pages/signUp";
 import Home from "./pages/home";
 import Onboarding from "./pages/onboarding";
+import Account from "./pages/account";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AuthSync from "./components/AuthSync";
 
@@ -22,6 +23,15 @@ function App() {
           element={
             <ProtectedRoute>
               <Home />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/users/:username"
+          element={
+            <ProtectedRoute>
+              <Account />
             </ProtectedRoute>
           }
         />
