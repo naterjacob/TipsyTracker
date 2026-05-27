@@ -4,10 +4,13 @@ type PostProps = {
     username: string;
     avatarColor: string;
     caption: string;
-    bars: string;
+    bars: string[];
     beers: number;
     shots: number;
     mixedDrinks: number;
+    likes?: number;
+    comments?: number;
+    createdAt?: string;
 };
 
 export default function Post({
@@ -17,7 +20,10 @@ export default function Post({
     bars,
     beers,
     shots,
-    mixedDrinks
+    mixedDrinks,
+    likes = 0,
+    comments = 0,
+    createdAt = "Just now"
 }: PostProps) {
 
     return (
@@ -30,9 +36,14 @@ export default function Post({
                     style={{ backgroundColor: avatarColor }}
                 />
 
-                <p className="tt-post-name">
-                    {username}
-                </p>
+                <div className="tt-post-head-copy">
+                    <p className="tt-post-name">
+                        {username}
+                    </p>
+                    <p className="tt-post-meta">
+                        {createdAt}
+                    </p>
+                </div>
             </div>
 
             {/*Caption section with the post text and bars visited*/}
@@ -42,7 +53,7 @@ export default function Post({
                 </p>
 
                 <p className="tt-post-bars">
-                    Bars Hopped: {bars}
+                    Bars Hopped: {bars.join(", ")}
                 </p>
             </div>
 
@@ -79,6 +90,11 @@ export default function Post({
                             />
                         </svg>
                     </button>
+                </div>
+
+                <div className="tt-post-stats">
+                    <p>{likes} likes</p>
+                    <p>{comments} comments</p>
                 </div>
 
                 {/*Drink totals shown on the right side of the bottom bar*/}
