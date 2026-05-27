@@ -1,12 +1,27 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import type { MiddlewareHandler } from "hono";
 import { createClerkClient } from "@clerk/backend";
+import { cors } from "hono/cors";
 import {
   getDatabase,
   type AppBindings,
   type AppVariables
 } from "./db";
-import { cors } from "hono/cors";
+import {
+  addDraftStop,
+  createDraftPost,
+  deleteDraftPost,
+  deleteDraftStop,
+  getPostDetails,
+  getUserProfile,
+  listBars,
+  listFeed,
+  listUserPosts,
+  publishDraftPost,
+  syncUser,
+  updateDraftCaption,
+  updateDraftStop
+} from "./dal";
 
 type AppEnv = {
   Bindings: AppBindings;
@@ -24,11 +39,24 @@ app.use(
   })
 );
 
-type BarRow = {
-  id: string;
-  name: string;
-  neighborhood: string | null;
-  created_at: number;
+const clampLimit = (
+  rawLimit: string | undefined,
+  defaultLimit = 20,
+  maxLimit = 50
+) => {
+  const parsed = Number.parseInt(rawLimit ?? "", 10);
+  if (Number.isNaN(parsed) || parsed <= 0) {
+    return defaultLimit;
+  }
+
+  return Math.min(parsed, maxLimit);
+};
+
+const parseCursor = (rawCursor: string | undefined) => {
+  if (!rawCursor) return null;
+  const parsed = Number.parseInt(rawCursor, 10);
+  if (Number.isNaN(parsed)) return null;
+  return parsed;
 };
 
 type ProfileBody = {
@@ -71,32 +99,221 @@ const requireAuth: MiddlewareHandler<AppEnv> = async (
 app.get("/api/health", (c) => c.json({ status: "ok" }));
 
 app.get("/api/bars", async (c) => {
-  const result = await getDatabase(c)
-    .prepare(
-      "SELECT id, name, neighborhood, created_at FROM bars ORDER BY name ASC"
-    )
-    .all<BarRow>();
-
-  return c.json({
-    bars: result.results
-  });
+  const bars = await listBars(getDatabase(c));
+  return c.json({ bars });
 });
 
-app.post("/api/auth/sync", requireAuth, async (c) => {
+app.post("/api/auth/sync", async (c) => {
+  const auth = await requireAuth(c, async () => {});
+  if (auth) return auth;
   const userId = c.get("userId");
-
-  await getDatabase(c)
-    .prepare(
-      `
-      INSERT INTO users (id, username, display_name, avatar_url, created_at)
-      VALUES (?, NULL, NULL, NULL, unixepoch())
-      ON CONFLICT(id) DO NOTHING
-      `
-    )
-    .bind(userId)
-    .run();
+  await syncUser(getDatabase(c), {
+    userId,
+    username: null,
+    displayName: null,
+    avatarUrl: null,
+    now: Math.floor(Date.now() / 1000)
+  });
 
   return c.json({ ok: true, userId });
+});
+
+app.get("/api/feed", async (c) => {
+  const auth = await requireAuth(c, async () => {});
+  if (auth) return auth;
+
+  const limit = clampLimit(c.req.query("limit"));
+  const cursor = parseCursor(c.req.query("cursor"));
+
+  const { posts, nextCursor } = await listFeed(getDatabase(c), {
+    limit,
+    cursor
+  });
+  return c.json({ posts, nextCursor });
+});
+
+app.get("/api/posts/:id", async (c) => {
+  const auth = await requireAuth(c, async () => {});
+  if (auth) return auth;
+  const postId = c.req.param("id");
+  const post = await getPostDetails(getDatabase(c), postId);
+  if (!post) {
+    return c.json({ error: "Not Found" }, 404);
+  }
+  return c.json({ post });
+});
+
+app.post("/api/posts", async (c) => {
+  const auth = await requireAuth(c, async () => {});
+  if (auth) return auth;
+  const userId = c.get("userId");
+  const post = await createDraftPost(getDatabase(c), {
+    userId,
+    now: Math.floor(Date.now() / 1000)
+  });
+  if (!post) {
+    return c.json(
+      {
+        error: "Conflict",
+        message: "User already has a draft post."
+      },
+      409
+    );
+  }
+  return c.json({ post }, 201);
+});
+
+app.patch("/api/posts/:id", async (c) => {
+  const auth = await requireAuth(c, async () => {});
+  if (auth) return auth;
+  const userId = c.get("userId");
+  const postId = c.req.param("id");
+  const payload = (await c.req.json().catch(() => null)) as {
+    caption?: string;
+  } | null;
+
+  const post = await updateDraftCaption(getDatabase(c), {
+    postId,
+    userId,
+    caption: payload?.caption ?? null
+  });
+  if (!post) return c.json({ error: "Not Found" }, 404);
+  return c.json({ post });
+});
+
+app.post("/api/posts/:id/publish", async (c) => {
+  const auth = await requireAuth(c, async () => {});
+  if (auth) return auth;
+  const userId = c.get("userId");
+  const postId = c.req.param("id");
+
+  const result = await publishDraftPost(getDatabase(c), {
+    postId,
+    userId,
+    publishedAt: Math.floor(Date.now() / 1000)
+  });
+  if (result.kind === "not_found")
+    return c.json({ error: "Not Found" }, 404);
+  if (result.kind === "no_stops") {
+    return c.json(
+      {
+        error: "Bad Request",
+        message:
+          "Draft must have at least one stop before publish."
+      },
+      400
+    );
+  }
+  return c.json({ post: result.post });
+});
+
+app.delete("/api/posts/:id", async (c) => {
+  const auth = await requireAuth(c, async () => {});
+  if (auth) return auth;
+  const userId = c.get("userId");
+  const postId = c.req.param("id");
+  const deleted = await deleteDraftPost(getDatabase(c), {
+    postId,
+    userId
+  });
+  if (!deleted) {
+    return c.json({ error: "Not Found" }, 404);
+  }
+  return c.body(null, 204);
+});
+
+app.post("/api/posts/:id/stops", async (c) => {
+  const auth = await requireAuth(c, async () => {});
+  if (auth) return auth;
+  const userId = c.get("userId");
+  const postId = c.req.param("id");
+  const payload = (await c.req.json().catch(() => null)) as {
+    barId?: string;
+    drinkCount?: number;
+    note?: string | null;
+    arrivedAt?: number;
+  } | null;
+
+  if (!payload?.barId) {
+    return c.json(
+      { error: "Bad Request", message: "barId is required." },
+      400
+    );
+  }
+  const stop = await addDraftStop(getDatabase(c), {
+    postId,
+    userId,
+    barId: payload.barId,
+    drinkCount: payload.drinkCount ?? 0,
+    note: payload.note ?? null,
+    arrivedAt:
+      payload.arrivedAt ?? Math.floor(Date.now() / 1000)
+  });
+  if (!stop) return c.json({ error: "Not Found" }, 404);
+
+  return c.json({ stop }, 201);
+});
+
+app.patch("/api/posts/:id/stops/:stopId", async (c) => {
+  const auth = await requireAuth(c, async () => {});
+  if (auth) return auth;
+  const userId = c.get("userId");
+  const postId = c.req.param("id");
+  const stopId = c.req.param("stopId");
+  const payload = (await c.req.json().catch(() => null)) as {
+    drinkCount?: number;
+    note?: string | null;
+  } | null;
+
+  const stop = await updateDraftStop(getDatabase(c), {
+    postId,
+    stopId,
+    userId,
+    drinkCount: payload?.drinkCount,
+    note: payload?.note
+  });
+  if (!stop) return c.json({ error: "Not Found" }, 404);
+  return c.json({ stop });
+});
+
+app.delete("/api/posts/:id/stops/:stopId", async (c) => {
+  const auth = await requireAuth(c, async () => {});
+  if (auth) return auth;
+  const userId = c.get("userId");
+  const postId = c.req.param("id");
+  const stopId = c.req.param("stopId");
+
+  const deleted = await deleteDraftStop(getDatabase(c), {
+    postId,
+    stopId,
+    userId
+  });
+  if (!deleted) {
+    return c.json({ error: "Not Found" }, 404);
+  }
+  return c.body(null, 204);
+});
+
+app.get("/api/users/:id", async (c) => {
+  const auth = await requireAuth(c, async () => {});
+  if (auth) return auth;
+  const userId = c.req.param("id");
+  const profile = await getUserProfile(getDatabase(c), userId);
+  if (!profile) return c.json({ error: "Not Found" }, 404);
+  return c.json(profile);
+});
+
+app.get("/api/users/:id/posts", async (c) => {
+  const auth = await requireAuth(c, async () => {});
+  if (auth) return auth;
+  const userId = c.req.param("id");
+  const limit = clampLimit(c.req.query("limit"));
+  const cursor = parseCursor(c.req.query("cursor"));
+  const { posts, nextCursor } = await listUserPosts(
+    getDatabase(c),
+    { userId, limit, cursor }
+  );
+  return c.json({ posts, nextCursor });
 });
 
 app.patch("/api/users/me/profile", requireAuth, async (c) => {
