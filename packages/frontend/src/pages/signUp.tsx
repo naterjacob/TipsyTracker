@@ -1,18 +1,22 @@
 import { SignUp } from "@clerk/clerk-react";
+import "./auth.css";
 
 function SignUpPage() {
   return (
-    <main style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
-      <section style={{ width: "100%", maxWidth: "420px" }}>
-        <h1>Create Account</h1>
-        <p>Sign up, then complete your TipsyTracker profile.</p>
-
-        <SignUp
-          path="/sign-up"
-          routing="path"
-          signInUrl="/sign-in"
-          fallbackRedirectUrl="/onboarding"
-        />
+    <main className="tt-auth-page">
+      <section className="small-container tt-auth-shell">
+        <header className="tt-auth-intro">
+          <h1>TipsyTracker</h1>
+          <p>Create your account, then finish your profile.</p>
+        </header>
+        <div className="tt-auth-card">
+          <SignUp
+            path="/sign-up"
+            routing="path"
+            signInUrl="/sign-in"
+            fallbackRedirectUrl="/onboarding"
+          />
+        </div>
       </section>
     </main>
   );

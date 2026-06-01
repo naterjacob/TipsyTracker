@@ -1,0 +1,10 @@
+.home-page {
+  min-height: 100vh;
+  background: #f5f8fa;
+  color: #22303a;
+}
+
+.home-content {
+  padding-top: 6.5rem;
+  padding-bottom: 2rem;
+}

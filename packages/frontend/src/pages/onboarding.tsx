@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthedFetch } from "../lib/api";
+import "./auth.css";
 
 function Onboarding() {
   const navigate = useNavigate();
@@ -38,51 +39,58 @@ function Onboarding() {
   }
 
   return (
-    <main style={{ maxWidth: "500px", margin: "2rem auto" }}>
-      <h1>Complete your profile</h1>
+    <main className="tt-auth-page">
+      <section className="small-container tt-auth-shell">
+        <header className="tt-auth-intro">
+          <h1>Complete your profile</h1>
+          <p>This helps your posts show up clearly in the feed.</p>
+        </header>
 
-      <form onSubmit={handleSubmit}>
-        <label>
-          Display name
-          <input
-            value={displayName}
-            onChange={(event) => setDisplayName(event.target.value)}
-            maxLength={40}
-            required
-          />
-        </label>
+        <form className="tt-auth-card tt-auth-form" onSubmit={handleSubmit}>
+          <label>
+            Display name
+            <input
+              value={displayName}
+              onChange={(event) => setDisplayName(event.target.value)}
+              maxLength={40}
+              required
+            />
+          </label>
 
-        <label>
-          Handle
-          <input
-            value={username}
-            onChange={(event) => setUsername(event.target.value)}
-            maxLength={20}
-            required
-          />
-        </label>
+          <label>
+            Handle
+            <input
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+              maxLength={20}
+              required
+            />
+          </label>
 
-        <label>
-          Profile picture URL
-          <input
-            value={avatarUrl}
-            onChange={(event) => setAvatarUrl(event.target.value)}
-          />
-        </label>
+          <label>
+            Profile picture URL
+            <input
+              value={avatarUrl}
+              onChange={(event) => setAvatarUrl(event.target.value)}
+            />
+          </label>
 
-        <label>
-          Bio ({bio.length}/50)
-          <textarea
-            value={bio}
-            onChange={(event) => setBio(event.target.value.slice(0, 50))}
-            maxLength={50}
-          />
-        </label>
+          <label>
+            Bio ({bio.length}/50)
+            <textarea
+              value={bio}
+              onChange={(event) => setBio(event.target.value.slice(0, 50))}
+              maxLength={50}
+            />
+          </label>
 
-        <button type="submit" disabled={isSaving}>
-          {isSaving ? "Saving..." : "Save profile"}
-        </button>
-      </form>
+          <div className="tt-auth-row">
+            <button type="submit" disabled={isSaving}>
+              {isSaving ? "Saving..." : "Save profile"}
+            </button>
+          </div>
+        </form>
+      </section>
     </main>
   );
 }

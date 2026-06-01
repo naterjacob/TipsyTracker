@@ -29,9 +29,9 @@ export const syncUser = async (
       `INSERT INTO users (id, username, display_name, avatar_url, created_at)
        VALUES (?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
-         username = excluded.username,
-         display_name = excluded.display_name,
-         avatar_url = excluded.avatar_url`
+         username = COALESCE(excluded.username, users.username),
+         display_name = COALESCE(excluded.display_name, users.display_name),
+         avatar_url = COALESCE(excluded.avatar_url, users.avatar_url)`
     )
     .bind(
       input.userId,
@@ -388,7 +388,7 @@ export const getUserProfile = async (
 ) => {
   const user = await db
     .prepare(
-      "SELECT id, username, display_name, avatar_url, created_at FROM users WHERE id = ?"
+      "SELECT id, username, display_name, avatar_url, bio, created_at FROM users WHERE id = ?"
     )
     .bind(userId)
     .first<UserRow>();
