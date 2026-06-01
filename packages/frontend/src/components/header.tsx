@@ -1,187 +1,403 @@
-//getting user info from clerk
+import { useEffect, useState, type FormEvent } from "react";
 import { useUser, UserButton } from "@clerk/clerk-react";
-
-//navigating to differnt pages
 import { Link, useNavigate } from "react-router-dom";
-
-import { useState } from "react";
-
-//imported react library components
-import {AppBar, Box, Toolbar, Typography, Button, Stack, DialogTitle, Dialog, DialogContent, TextField, Select, MenuItem,
-FormControl, Checkbox, ListItemText, InputLabel, DialogActions} from "@mui/material"
+import {
+  AppBar,
+  Box,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
+  Stack,
+  TextField,
+  Toolbar,
+  Typography
+} from "@mui/material";
 import PersonIcon from "@mui/icons-material/Person";
+import { useAuthedFetch } from "../lib/api";
+import "./header.css";
 
+type HeaderProps = {
+  onPostCreated?: () => void;
+};
 
+type Bar = {
+  id: string;
+  name: string;
+  neighborhood: string | null;
+};
 
-//Diaglog here just means popup window
-export interface SimpleDialogProps {
-    open: boolean;
-    selectedValue: string;
-    onClose: (value: string) => void;
-}
+type DraftStopInput = {
+  barId: string;
+  drinkCount: number;
+  note: string;
+};
 
-function SimpleDialog(props: SimpleDialogProps) {
-    const { onClose, selectedValue, open } = props;
+export default function Header({ onPostCreated = () => {} }: HeaderProps) {
+  const navigate = useNavigate();
+  const authedFetch = useAuthedFetch();
+  const { user } = useUser();
+  const [showPost, setShowPost] = useState(false);
+  const [bars, setBars] = useState<Bar[]>([]);
+  const [caption, setCaption] = useState("");
+  const [stops, setStops] = useState<DraftStopInput[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-    const handleClose = () => {
-        onClose(selectedValue);
+  useEffect(() => {
+    if (!showPost) return;
+    let isMounted = true;
 
+    async function loadBars() {
+      const response = await authedFetch("/api/bars");
+      if (!response.ok) {
+        if (isMounted) setErrorMessage("Failed to load bars.");
+        return;
+      }
+
+      const data = (await response.json()) as { bars?: Bar[] };
+      if (!isMounted) return;
+      const nextBars = data.bars ?? [];
+      setBars(nextBars);
+      setStops((current) =>
+        current.length > 0
+          ? current
+          : [
+              {
+                barId: nextBars[0]?.id || "",
+                drinkCount: 1,
+                note: ""
+              }
+            ]
+      );
+    }
+
+    void loadBars();
+    return () => {
+      isMounted = false;
     };
+  }, [authedFetch, showPost]);
 
-    //Saving info
-    const [caption, setCaption] = useState("");
-    const [bars, setBars] = useState<string[]>([]);
-
-
-    const handlePost = () => {
-        const newPost = {
-            caption,
-            bars,
-        };
-
-        //Seeing if the post button does anything
-        console.log("Posting:", newPost);
-
-        // reset fields
-        setCaption("");
-        setBars([]);
-
-        // close dialog
-        handleClose();
-
-    };
-    return (
-        <Dialog onClose={handleClose} open={open} maxWidth="md" fullWidth>
-            <DialogTitle>Make a post</DialogTitle>
-            {/*text box to make a caption */}
-            <DialogContent>
-                <TextField
-                    autoFocus
-                    multiline
-                    minRows={3}
-                    placeholder="Write a caption..."
-                    fullWidth
-                    variant="filled"
-                    value={caption}
-                    onChange={(e) => setCaption(e.target.value)}
-                />
-
-                {/*drop down menu for bars, will connect to backend later */}
-                <FormControl fullWidth sx={{ mt: 2 }}>
-                    <InputLabel>Bars Hopped</InputLabel>
-
-                    <Select
-                        multiple
-                        value={bars}
-                        onChange={(e) => setBars(e.target.value as string[])}
-                        renderValue={(selected) => selected.join(", ")}
-                        label="Categories"
-                    >
-                        <MenuItem value="Frog & Peach Pub">
-                            <Checkbox checked={bars.includes("Frog & Peach Pub")} />
-                            <ListItemText primary="Frog & Peach Pub" />
-                        </MenuItem>
-
-                        <MenuItem value="Black Sheep Bar">
-                            <Checkbox checked={bars.includes("Black Sheep Bar")} />
-                            <ListItemText primary="Black Sheep Bar" />
-                        </MenuItem>
-                    </Select>
-                </FormControl>
-            </DialogContent>
-
-            {/*post and cancel buttons */}
-            <DialogActions>
-                <Button onClick={handleClose}>Cancel</Button>
-
-                <Button
-                    onClick={handlePost}
-                    variant="contained"
-                    disabled={!caption.trim()}
-                >
-                    Post
-                </Button>
-            </DialogActions>
-
-        </Dialog>
+  const resetComposer = () => {
+    setCaption("");
+    setStops(
+      bars[0]
+        ? [
+            {
+              barId: bars[0].id,
+              drinkCount: 1,
+              note: ""
+            }
+          ]
+        : []
     );
-}
+    setErrorMessage(null);
+  };
 
+  const closeComposer = () => {
+    setShowPost(false);
+    resetComposer();
+  };
 
-export default function Header() {
-    //setting up page navigation and curent logged user info
-    const navigate = useNavigate();
-    const { user } = useUser();
+  const addStop = () => {
+    setStops((current) => [
+      ...current,
+      {
+        barId: bars[0]?.id || "",
+        drinkCount: 1,
+        note: ""
+      }
+    ]);
+  };
 
-    //place holder if not able to get username
-    if (!user) return null;
+  const updateStop = (
+    index: number,
+    key: keyof DraftStopInput,
+    value: string | number
+  ) => {
+    setStops((current) =>
+      current.map((stop, stopIndex) =>
+        stopIndex === index ? { ...stop, [key]: value } : stop
+      )
+    );
+  };
 
-    //stuff for pop up to make a post
-    const [showPost, setShowPost] = useState(false);
+  const removeStop = (index: number) => {
+    setStops((current) =>
+      current.filter((_, stopIndex) => stopIndex !== index)
+    );
+  };
 
-    const handleClickOpen = () => {
-        setShowPost(true);
+  async function handleCreatePost(event: FormEvent) {
+    event.preventDefault();
+
+    if (stops.length === 0) {
+      setErrorMessage("Add at least one stop.");
+      return;
+    }
+
+    if (stops.some((stop) => !stop.barId)) {
+      setErrorMessage("Every stop needs a bar.");
+      return;
+    }
+
+    if (stops.some((stop) => stop.drinkCount <= 0)) {
+      setErrorMessage("Drinks must be at least 1 for every stop.");
+      return;
+    }
+
+    setIsSaving(true);
+    setErrorMessage(null);
+
+    const createResponse = await authedFetch("/api/posts", {
+      method: "POST"
+    });
+    if (!createResponse.ok) {
+      setIsSaving(false);
+      setErrorMessage("Could not create draft post.");
+      return;
+    }
+
+    const createData = (await createResponse.json()) as {
+      post?: { id?: string };
     };
+    const postId = createData.post?.id;
+    if (!postId) {
+      setIsSaving(false);
+      setErrorMessage("Draft post response was invalid.");
+      return;
+    }
 
-    const handleClose = () => {
-        setShowPost(false);
-    };
+    const captionResponse = await authedFetch(`/api/posts/${postId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ caption: caption.trim() || null })
+    });
+    if (!captionResponse.ok) {
+      setIsSaving(false);
+      setErrorMessage("Could not save caption.");
+      return;
+    }
 
+    for (const stop of stops) {
+      const stopResponse = await authedFetch(`/api/posts/${postId}/stops`, {
+        method: "POST",
+        body: JSON.stringify({
+          barId: stop.barId,
+          drinkCount: stop.drinkCount,
+          note: stop.note.trim() || null
+        })
+      });
+      if (!stopResponse.ok) {
+        setIsSaving(false);
+        setErrorMessage("Could not add one of the stops.");
+        return;
+      }
+    }
 
-    return (
-        <Box sx={{ flexGrow: 1 }}>
-            <AppBar position="static" sx={{ backgroundColor: '#ffffff' }}>
-                <Toolbar>
-                    {/*Logo button */}
-                    <Typography variant="h4" component={Link} to={"/home"}
-                        sx={{ flexGrow: 1, color: '#034078', fontFamily: `sans-serif`, fontStyle: 'italic' }}>
-                        TipsyTracker
-                    </Typography>
+    const publishResponse = await authedFetch(`/api/posts/${postId}/publish`, {
+      method: "POST"
+    });
+    setIsSaving(false);
 
-                    {/*right side buttons */}
-                    <Stack spacing={2} direction="row">
+    if (!publishResponse.ok) {
+      setErrorMessage("Could not publish post.");
+      return;
+    }
 
-                        {/*post button */}
-                        <Button variant="outlined" sx={{
-                            color: '#034078',
-                            borderColor: '#034078',
-                            fontStyle: 'bold',
-                            fontWeight: 800,
-                            fontSize: 24
-                        }} onClick={handleClickOpen}>+</Button>
+    closeComposer();
+    onPostCreated();
+  }
 
-                        {/*user menu button and making it bigger */}
-                        <UserButton appearance={{
-                            elements: {
-                                userButtonAvatarBox: {
-                                    width: "48px",
-                                    height: "48px",
-                                },
-                                userButtonTrigger: {
-                                    width: "48px",
-                                    height: "48px",
-                                },
-                            },
-                        }}>
-                            <UserButton.MenuItems>
-                                <UserButton.Action
-                                    label="Account"
-                                    labelIcon={<PersonIcon />}
-                                    onClick={() => navigate(`/users/${user.username}`)}
-                                />
-                            </UserButton.MenuItems>
-                        </UserButton>
+  return (
+    <Box sx={{ flexGrow: 1 }}>
+      <AppBar position="static" sx={{ backgroundColor: "#ffffff" }}>
+        <Toolbar>
+          <Typography
+            variant="h4"
+            component={Link}
+            to="/home"
+            sx={{
+              flexGrow: 1,
+              color: "#034078",
+              fontFamily: "sans-serif",
+              fontStyle: "italic",
+              textDecoration: "none"
+            }}
+          >
+            TipsyTracker
+          </Typography>
 
-                        {/*loads in the pop up */}
-                        <SimpleDialog
-                            selectedValue={""}
-                            open={showPost}
-                            onClose={handleClose}
-                        />
-                    </Stack>
-                </Toolbar>
-            </AppBar>
+          <Stack spacing={2} direction="row" sx={{ alignItems: "center" }}>
+            <Button
+              variant="outlined"
+              sx={{
+                color: "#034078",
+                borderColor: "#034078",
+                fontWeight: 800,
+                fontSize: 24
+              }}
+              onClick={() => setShowPost(true)}
+              type="button"
+            >
+              +
+            </Button>
+
+            {user ? (
+              <UserButton
+                appearance={{
+                  elements: {
+                    userButtonAvatarBox: {
+                      width: "48px",
+                      height: "48px"
+                    },
+                    userButtonTrigger: {
+                      width: "48px",
+                      height: "48px"
+                    }
+                  }
+                }}
+              >
+                <UserButton.MenuItems>
+                  <UserButton.Action
+                    label="Account"
+                    labelIcon={<PersonIcon />}
+                    onClick={() =>
+                      navigate(`/users/${user.username ?? user.id}`)
+                    }
+                  />
+                </UserButton.MenuItems>
+              </UserButton>
+            ) : null}
+          </Stack>
+        </Toolbar>
+      </AppBar>
+
+      <Dialog
+        onClose={closeComposer}
+        open={showPost}
+        maxWidth="md"
+        fullWidth
+      >
+        <Box component="form" onSubmit={handleCreatePost}>
+          <DialogTitle>Make a post</DialogTitle>
+          <DialogContent>
+            <Stack spacing={2} sx={{ pt: 1 }}>
+              <TextField
+                autoFocus
+                multiline
+                minRows={3}
+                placeholder="Write a caption..."
+                fullWidth
+                variant="filled"
+                value={caption}
+                onChange={(event) => setCaption(event.target.value)}
+                slotProps={{ htmlInput: { maxLength: 240 } }}
+              />
+
+              {stops.map((stop, index) => (
+                <Stack
+                  key={`stop-${index}`}
+                  spacing={1.5}
+                  sx={{
+                    border: "1px solid #dbe4ea",
+                    borderRadius: 1,
+                    p: 2
+                  }}
+                >
+                  <Typography variant="subtitle2">Stop {index + 1}</Typography>
+                  <FormControl fullWidth>
+                    <InputLabel>Bar</InputLabel>
+                    <Select
+                      value={stop.barId}
+                      label="Bar"
+                      onChange={(event) =>
+                        updateStop(index, "barId", event.target.value)
+                      }
+                      required
+                    >
+                      {bars.map((bar) => (
+                        <MenuItem key={bar.id} value={bar.id}>
+                          {bar.neighborhood
+                            ? `${bar.name} (${bar.neighborhood})`
+                            : bar.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  <TextField
+                    label="Drinks at stop"
+                    type="number"
+                    slotProps={{ htmlInput: { min: 1 } }}
+                    value={stop.drinkCount}
+                    onChange={(event) =>
+                      updateStop(
+                        index,
+                        "drinkCount",
+                        Math.max(1, Number(event.target.value) || 1)
+                      )
+                    }
+                  />
+
+                  <TextField
+                    label="Stop note (optional)"
+                    value={stop.note}
+                    onChange={(event) =>
+                      updateStop(index, "note", event.target.value)
+                    }
+                    slotProps={{ htmlInput: { maxLength: 120 } }}
+                  />
+
+                  <Box>
+                    <Button
+                      type="button"
+                      onClick={() => removeStop(index)}
+                      disabled={stops.length <= 1}
+                    >
+                      Remove Stop
+                    </Button>
+                  </Box>
+                </Stack>
+              ))}
+
+              <Box>
+                <Button type="button" onClick={addStop}>
+                  Add Stop
+                </Button>
+              </Box>
+
+              <Typography variant="body2">
+                Total drinks:{" "}
+                {stops.reduce((sum, stop) => sum + stop.drinkCount, 0)}
+              </Typography>
+
+              {errorMessage ? (
+                <Typography color="error" variant="body2">
+                  {errorMessage}
+                </Typography>
+              ) : null}
+            </Stack>
+          </DialogContent>
+
+          <DialogActions>
+            <Button onClick={closeComposer} type="button">
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="contained"
+              disabled={isSaving || bars.length === 0}
+            >
+              {isSaving ? "Posting..." : "Post"}
+            </Button>
+          </DialogActions>
         </Box>
-    )
-
+      </Dialog>
+    </Box>
+  );
 }

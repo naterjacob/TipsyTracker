@@ -1,0 +1,102 @@
+.tt-post-card {
+  background: #ffffff;
+  border: 1px solid #dbe4ea;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  overflow: hidden;
+}
+
+.tt-post-head {
+  padding: 1rem;
+  border-bottom: 1px solid #e6edf2;
+}
+
+.tt-post-user {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.tt-post-icon {
+  inline-size: 2.25rem;
+  block-size: 2.25rem;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.tt-post-icon-fallback {
+  background: #d3e3ec;
+  color: #234255;
+  display: grid;
+  place-items: center;
+  font-weight: 600;
+}
+
+.tt-post-name {
+  margin: 0;
+  font-size: 1rem;
+  color: #22303a;
+}
+
+.tt-post-meta {
+  margin: 0.2rem 0 0;
+  font-size: 0.85rem;
+  color: #5b6b75;
+}
+
+.tt-post-caption-section {
+  padding: 1rem;
+}
+
+.tt-post-caption,
+.tt-post-bars {
+  margin: 0 0 0.5rem;
+  overflow-wrap: break-word;
+}
+
+.tt-post-bottom {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  border-top: 1px solid #e6edf2;
+}
+
+.tt-post-drinks {
+  margin: 0;
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.tt-drink {
+  display: flex;
+  gap: 0.4rem;
+  align-items: baseline;
+}
+
+.tt-drink dt {
+  font-size: 0.82rem;
+  color: #5b6b75;
+}
+
+.tt-drink dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.home-feed {
+  max-width: 48rem;
+}
+
+@media (max-width: 640px) {
+  .tt-post-bottom {
+    align-items: stretch;
+  }
+  .tt-post-drinks {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
