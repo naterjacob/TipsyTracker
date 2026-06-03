@@ -68,7 +68,54 @@ export const stops = sqliteTable(
   })
 );
 
+export const comments = sqliteTable(
+  "comments", {
+  id: text("id").primaryKey(),
+  postId: text("post_id")
+    .notNull()
+    .references(() => posts.id, { onDelete: "cascade" }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  content: text("content")
+    .notNull(),
+  publishedAt: integer("published_at")
+    .notNull()
+},
+  (table) => ({
+    commentsPostPublishedIdx: index("idx_comments_post_published")
+      .on(table.postId, table.publishedAt),
+
+    commentsUserIdx: index("idx_comments_user")
+      .on(table.userId)
+
+  })
+
+);
+
+export const likes = sqliteTable(
+  "likes", {
+  postId: text("post_id")
+    .notNull()
+    .references(() => posts.id, { onDelete: "cascade" }),
+
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  createdAt: integer("created_at").notNull()
+},
+  (table) => ({
+    likesPostIdx: index("idx_likes_post")
+      .on(table.postId),
+
+    likesUserIdx: index("idx_likes_user")
+      .on(table.userId),
+  })
+)
+
 export type UserRow = typeof users.$inferSelect;
 export type BarRow = typeof bars.$inferSelect;
 export type PostRow = typeof posts.$inferSelect;
 export type StopRow = typeof stops.$inferSelect;
+export type CommentRow = typeof comments.$inferInsert;
+export type likeRow = typeof comments.$inferInsert;

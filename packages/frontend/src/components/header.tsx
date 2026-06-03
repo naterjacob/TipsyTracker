@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useUser, UserButton } from "@clerk/clerk-react";
-import { Link, useNavigate } from "react-router-dom";
+import {  useNavigate } from "react-router-dom";
 import {
   AppBar,
   Box,
@@ -20,7 +20,6 @@ import {
 } from "@mui/material";
 import PersonIcon from "@mui/icons-material/Person";
 import { useAuthedFetch } from "../lib/api";
-import "./header.css";
 
 type HeaderProps = {
   onPostCreated?: () => void;
@@ -38,7 +37,7 @@ type DraftStopInput = {
   note: string;
 };
 
-export default function Header({ onPostCreated = () => {} }: HeaderProps) {
+export default function Header({ onPostCreated = () => { } }: HeaderProps) {
   const navigate = useNavigate();
   const authedFetch = useAuthedFetch();
   const { user } = useUser();
@@ -68,12 +67,12 @@ export default function Header({ onPostCreated = () => {} }: HeaderProps) {
         current.length > 0
           ? current
           : [
-              {
-                barId: nextBars[0]?.id || "",
-                drinkCount: 1,
-                note: ""
-              }
-            ]
+            {
+              barId: nextBars[0]?.id || "",
+              drinkCount: 1,
+              note: ""
+            }
+          ]
       );
     }
 
@@ -88,12 +87,12 @@ export default function Header({ onPostCreated = () => {} }: HeaderProps) {
     setStops(
       bars[0]
         ? [
-            {
-              barId: bars[0].id,
-              drinkCount: 1,
-              note: ""
-            }
-          ]
+          {
+            barId: bars[0].id,
+            drinkCount: 1,
+            note: ""
+          }
+        ]
         : []
     );
     setErrorMessage(null);
@@ -215,22 +214,32 @@ export default function Header({ onPostCreated = () => {} }: HeaderProps) {
 
   return (
     <Box sx={{ flexGrow: 1 }}>
-      <AppBar position="static" sx={{ backgroundColor: "#ffffff" }}>
+      <AppBar position="static" sx={{ backgroundColor: "#ffffff", mb:2 }}>
         <Toolbar>
-          <Typography
-            variant="h4"
-            component={Link}
-            to="/home"
+          <Button
+            onClick={() =>
+              navigate(`/home`)
+            }
             sx={{
-              flexGrow: 1,
+              flexGrow: 0,
               color: "#034078",
               fontFamily: "sans-serif",
               fontStyle: "italic",
-              textDecoration: "none"
+              textTransform: "none",
+              fontSize: "2rem",
+              fontWeight: "bold",
+              justifyContent: "flex-start",
+              '&:hover': {
+                backgroundColor: 'transparent',
+                color: '#034078',
+              }
+
             }}
           >
             TipsyTracker
-          </Typography>
+          </Button>
+
+          <Box sx={{ flexGrow: 1 }} />
 
           <Stack spacing={2} direction="row" sx={{ alignItems: "center" }}>
             <Button

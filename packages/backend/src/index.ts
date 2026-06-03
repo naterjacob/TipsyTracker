@@ -20,7 +20,13 @@ import {
   publishDraftPost,
   syncUser,
   updateDraftCaption,
-  updateDraftStop
+  updateDraftStop,
+  createComment,
+  listComments,
+  deleteComment,
+  likePost,
+  unlikePost,
+  getPostLikeStatus
 } from "./dal";
 
 type AppEnv = {
@@ -367,6 +373,104 @@ app.patch("/api/users/me/profile", requireAuth, async (c) => {
   }
 
   return c.json({ ok: true });
+});
+
+app.post("/api/posts/:id/comments", async (c) => {
+  const auth = await requireAuth(c, async () => {});
+  if (auth) return auth;
+
+  const userId = c.get("userId");
+  const postId = c.req.param("id");
+
+  const payload = (await c.req.json().catch(() => null)) as {
+    content?: string;
+  } | null;
+
+  if (!payload?.content?.trim()) {
+    return c.json(
+      {
+        error: "Bad Request",
+        message: "content is required."
+      },
+      400
+    );
+  }
+
+  const comment = await createComment(getDatabase(c), {
+    postId,
+    userId,
+    content: payload.content.trim(),
+    publishedAt: Math.floor(Date.now() / 1000)
+  });
+
+  if (!comment) {
+    return c.json({ error: "Not Found" }, 404);
+  }
+
+  return c.json({ comment}, 201);
+});
+
+app.get("/api/posts/:id/comments", async (c) => {
+  const auth = await requireAuth(c, async () => {});
+  if (auth) return auth;
+
+  const postId = c.req.param("id");
+
+  const comments = await listComments(
+    getDatabase(c),
+    postId
+  );
+
+  return c.json({ comments });
+});
+
+app.post("/api/posts/:id/likes", async (c) => {
+  const auth = await requireAuth(c, async () => {});
+  if (auth) return auth;
+
+  const userId = c.get("userId");
+  const postId = c.req.param("id");
+
+  await likePost(getDatabase(c), {
+    postId,
+    userId,
+    createdAt: Math.floor(Date.now() / 1000),
+  });
+
+  return c.body(null, 204);
+});
+
+app.delete("/api/posts/:id/likes", async (c) => {
+  const auth = await requireAuth(c, async () => {});
+  if (auth) return auth;
+
+  const userId = c.get("userId");
+  const postId = c.req.param("id");
+
+  await unlikePost(getDatabase(c), {
+    postId,
+    userId,
+  });
+
+  return c.body(null, 204);
+});
+
+app.get("/api/posts/:id/likes", async (c) => {
+  const auth = await requireAuth(c, async () => {});
+  if (auth) return auth;
+
+  const userId = c.get("userId");
+  const postId = c.req.param("id");
+
+  const likes = await getPostLikeStatus(
+    getDatabase(c),
+    {
+      postId,
+      userId,
+    }
+  );
+
+  return c.json(likes);
 });
 
 export default app;

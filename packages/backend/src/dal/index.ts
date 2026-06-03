@@ -2,7 +2,8 @@ import type {
   BarRow,
   PostRow,
   StopRow,
-  UserRow
+  UserRow,
+  CommentRow
 } from "../db/schema";
 
 export const listBars = async (db: D1Database) => {
@@ -127,6 +128,7 @@ export const getPostDetails = async (
     .bind(postId)
     .all<Record<string, unknown>>();
 
+  const comments = await listComments(db, postId);
   return {
     id: post.id,
     userId: post.user_id,
@@ -478,4 +480,173 @@ export const listUserPosts = async (
       ? last.publishedAt
       : null;
   return { posts, nextCursor };
+};
+
+export const listComments = async (
+  db: D1Database,
+  postId: string
+) => {
+  const result = await db
+    .prepare(
+      `SELECT
+         c.id,
+         c.post_id,
+         c.user_id,
+         c.content,
+         c.published_at,
+         u.username,
+         u.display_name,
+         u.avatar_url
+       FROM comments c
+       JOIN users u ON u.id = c.user_id
+       JOIN posts p ON p.id = c.post_id
+       WHERE c.post_id = ?
+         AND p.status = 'published'
+       ORDER BY c.published_at ASC`
+    )
+    .bind(postId)
+    .all<Record<string, unknown>>();
+
+  return result.results.map((row) => ({
+    id: row.id,
+    postId: row.post_id,
+    userId: row.user_id,
+    content: row.content,
+    publishedAt: row.published_at,
+    author: {
+      id: row.user_id,
+      username: row.username,
+      displayName: row.display_name,
+      avatarUrl: row.avatar_url
+    }
+  }));
+};
+
+export const createComment = async (
+  db: D1Database,
+  input: {
+    postId: string;
+    userId: string;
+    content: string;
+    publishedAt: number;
+  }
+) => {
+  const post = await db
+    .prepare(
+      "SELECT id FROM posts WHERE id = ? AND status = 'published' LIMIT 1"
+    )
+    .bind(input.postId)
+    .first<{ id: string }>();
+
+  if (!post) return null;
+
+  const commentId = crypto.randomUUID();
+
+  await db
+    .prepare(
+      `INSERT INTO comments
+       (id, post_id, user_id, content, published_at)
+       VALUES (?, ?, ?, ?, ?)`
+    )
+    .bind(
+      commentId,
+      input.postId,
+      input.userId,
+      input.content.trim(),
+      input.publishedAt
+    )
+    .run();
+
+  return db
+    .prepare(
+      `SELECT id, post_id, user_id, content, published_at
+       FROM comments
+       WHERE id = ?`
+    )
+    .bind(commentId)
+    .first<CommentRow>();
+};
+
+export const deleteComment = async (
+  db: D1Database,
+  input: {
+    commentId: string;
+    userId: string;
+  }
+) => {
+  const result = await db
+    .prepare(
+      "DELETE FROM comments WHERE id = ? AND user_id = ?"
+    )
+    .bind(input.commentId, input.userId)
+    .run();
+
+  return result.success && (result.meta.changes ?? 0) > 0;
+};
+
+export const likePost = async (
+  db: D1Database,
+  input: {
+    postId: string;
+    userId: string;
+    createdAt: number;
+  }
+) => {
+  await db
+    .prepare(
+      `INSERT OR IGNORE INTO likes
+       (post_id, user_id, created_at)
+       VALUES (?, ?, ?)`
+    )
+    .bind(input.postId, input.userId, input.createdAt)
+    .run();
+};
+
+export const unlikePost = async (
+  db: D1Database,
+  input: {
+    postId: string;
+    userId: string;
+  }
+) => {
+  const result = await db
+    .prepare(
+      `DELETE FROM likes
+       WHERE post_id = ? AND user_id = ?`
+    )
+    .bind(input.postId, input.userId)
+    .run();
+
+  return result.success && (result.meta.changes ?? 0) > 0;
+};
+
+export const getPostLikeStatus = async (
+  db: D1Database,
+  input: {
+    postId: string;
+    userId: string;
+  }
+) => {
+  const row = await db
+    .prepare(
+      `SELECT
+         COUNT(*) AS like_count,
+         EXISTS(
+           SELECT 1
+           FROM likes
+           WHERE post_id = ? AND user_id = ?
+         ) AS liked_by_me
+       FROM likes
+       WHERE post_id = ?`
+    )
+    .bind(input.postId, input.userId, input.postId)
+    .first<{
+      like_count: number;
+      liked_by_me: number;
+    }>();
+
+  return {
+    likeCount: row?.like_count ?? 0,
+    likedByMe: Boolean(row?.liked_by_me),
+  };
 };
