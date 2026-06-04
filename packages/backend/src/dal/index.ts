@@ -250,14 +250,12 @@ export const publishDraftPost = async (
   return { kind: "ok" as const, post };
 };
 
-export const deleteDraftPost = async (
+export const deleteOwnedPost = async (
   db: D1Database,
   input: { postId: string; userId: string }
 ) => {
   const result = await db
-    .prepare(
-      "DELETE FROM posts WHERE id = ? AND user_id = ? AND status = 'draft'"
-    )
+    .prepare("DELETE FROM posts WHERE id = ? AND user_id = ?")
     .bind(input.postId, input.userId)
     .run();
   return result.success && (result.meta.changes ?? 0) > 0;

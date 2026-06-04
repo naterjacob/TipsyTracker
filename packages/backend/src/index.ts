@@ -10,7 +10,7 @@ import {
 import {
   addDraftStop,
   createDraftPost,
-  deleteDraftPost,
+  deleteOwnedPost,
   deleteDraftStop,
   getPostDetails,
   getUserProfile,
@@ -212,7 +212,7 @@ app.delete("/api/posts/:id", async (c) => {
   if (auth) return auth;
   const userId = c.get("userId");
   const postId = c.req.param("id");
-  const deleted = await deleteDraftPost(getDatabase(c), {
+  const deleted = await deleteOwnedPost(getDatabase(c), {
     postId,
     userId
   });
