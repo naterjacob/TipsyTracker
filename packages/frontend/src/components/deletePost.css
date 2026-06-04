@@ -1,0 +1,47 @@
+.delete-post {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+}
+
+.delete-post-confirm {
+  align-items: stretch;
+}
+
+.delete-post-prompt {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #556874;
+}
+
+.delete-post-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.delete-post-trigger,
+.delete-post-button {
+  font-size: 0.82rem;
+  padding: 0.35rem 0.65rem;
+}
+
+.delete-post-button {
+  background: #b42318;
+  border-color: #912018;
+  color: #ffffff;
+}
+
+.delete-post-button:hover,
+.delete-post-button:focus {
+  background: #912018;
+  border-color: #7a1a13;
+  color: #ffffff;
+}
+
+.delete-post-error {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #b42318;
+}

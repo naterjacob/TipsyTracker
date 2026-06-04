@@ -1,0 +1,24 @@
+.home-page {
+  min-height: 100vh;
+  background: #f5f8fa;
+  color: #22303a;
+}
+
+.home-content {
+  padding-top: 6.5rem;
+  padding-bottom: 2rem;
+}
+
+.home-layout {
+  align-items: start;
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: minmax(0, 48rem) minmax(18rem, 22rem);
+  justify-content: center;
+}
+
+@media (max-width: 980px) {
+  .home-layout {
+    grid-template-columns: 1fr;
+  }
+}
