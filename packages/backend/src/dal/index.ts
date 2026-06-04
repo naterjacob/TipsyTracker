@@ -3,7 +3,8 @@ import type {
   PostRow,
   StopRow,
   UserRow,
-  CommentRow
+  CommentRow,
+  LikeRow
 } from "../db/schema";
 
 export const listBars = async (db: D1Database) => {

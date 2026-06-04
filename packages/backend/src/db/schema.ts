@@ -118,4 +118,4 @@ export type BarRow = typeof bars.$inferSelect;
 export type PostRow = typeof posts.$inferSelect;
 export type StopRow = typeof stops.$inferSelect;
 export type CommentRow = typeof comments.$inferInsert;
-export type likeRow = typeof comments.$inferInsert;
+export type LikeRow = typeof likes.$inferInsert;
