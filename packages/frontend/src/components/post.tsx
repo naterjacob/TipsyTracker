@@ -1,9 +1,9 @@
 import "./post.css";
-import { Stack, Button } from '@mui/material';
-import FavoriteIcon from '@mui/icons-material/Favorite';
-import CommentIcon from '@mui/icons-material/Comment';
+import { Button, Stack } from "@mui/material";
+import FavoriteIcon from "@mui/icons-material/Favorite";
+import CommentIcon from "@mui/icons-material/Comment";
 import { useEffect, useState } from "react";
-import Comment from "./comment"
+import Comment from "./comment";
 import { useAuthedFetch } from "../lib/api";
 
 type PostProps = {
@@ -53,7 +53,7 @@ export default function Post({
     }
 
     fetchLikes();
-  }, [id]);
+  }, [authedFetch, id]);
 
   async function handleLikeToggle() {
   const method = likedByMe ? "DELETE" : "POST";

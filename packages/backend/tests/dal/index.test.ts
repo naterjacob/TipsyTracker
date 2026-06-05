@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   createDraftPost,
+  likePost,
   publishDraftPost,
   syncUser,
   updateDraftCaption
@@ -29,7 +30,7 @@ const createMockPrepared = (
   ...overrides
 });
 
-let prepared = createMockPrepared();
+const prepared = createMockPrepared();
 
 const createMockDb = (
   prepareImpl: (query: string) => MockPrepared
@@ -91,12 +92,11 @@ describe("DAL", () => {
           "SELECT id FROM posts WHERE id = ? AND user_id = ? AND status = 'draft'"
         )
       ) {
-        const ownerCheck = createMockPrepared({
+        return createMockPrepared({
           bind: vi.fn(() => ({
             first: vi.fn(async () => ({ id: "post_1" }))
           })) as unknown as MockPrepared["bind"]
         });
-        return ownerCheck;
       }
       if (
         query.includes(
@@ -176,5 +176,68 @@ describe("DAL", () => {
     });
 
     expect(result.kind).toBe("no_stops");
+  });
+
+  it("likePost writes through insert-or-ignore for published posts", async () => {
+    const run = vi.fn(async () => ({
+      success: true,
+      meta: { changes: 0 }
+    }));
+    const prepare = vi.fn((query: string) => {
+      if (query.includes("SELECT id FROM posts")) {
+        return createMockPrepared({
+          bind: vi.fn(() => ({
+            first: vi.fn(async () => ({ id: "post_1" }))
+          })) as unknown as MockPrepared["bind"]
+        });
+      }
+
+      return createMockPrepared({
+        bind: vi.fn(() => ({ run })) as unknown as MockPrepared["bind"]
+      });
+    });
+    const db = { prepare } as unknown as D1Database;
+
+    const liked = await likePost(db, {
+      postId: "post_1",
+      userId: "user_1",
+      createdAt: 300
+    });
+
+    expect(liked).toBe(true);
+    expect(prepare).toHaveBeenCalledWith(
+      expect.stringContaining("INSERT OR IGNORE INTO likes")
+    );
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it("likePost rejects missing or unpublished posts", async () => {
+    const run = vi.fn(async () => ({
+      success: true,
+      meta: { changes: 1 }
+    }));
+    const prepare = vi.fn((query: string) => {
+      if (query.includes("SELECT id FROM posts")) {
+        return createMockPrepared({
+          bind: vi.fn(() => ({
+            first: vi.fn(async () => null)
+          })) as unknown as MockPrepared["bind"]
+        });
+      }
+
+      return createMockPrepared({
+        bind: vi.fn(() => ({ run })) as unknown as MockPrepared["bind"]
+      });
+    });
+    const db = { prepare } as unknown as D1Database;
+
+    const liked = await likePost(db, {
+      postId: "post_1",
+      userId: "user_1",
+      createdAt: 300
+    });
+
+    expect(liked).toBe(false);
+    expect(run).not.toHaveBeenCalled();
   });
 });

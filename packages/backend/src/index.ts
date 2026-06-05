@@ -1,4 +1,4 @@
-import { Hono, type Context } from "hono";
+import { Hono } from "hono";
 import type { MiddlewareHandler } from "hono";
 import { createClerkClient } from "@clerk/backend";
 import { cors } from "hono/cors";
@@ -23,7 +23,6 @@ import {
   updateDraftStop,
   createComment,
   listComments,
-  deleteComment,
   likePost,
   unlikePost,
   getPostLikeStatus
@@ -431,11 +430,15 @@ app.post("/api/posts/:id/likes", async (c) => {
   const userId = c.get("userId");
   const postId = c.req.param("id");
 
-  await likePost(getDatabase(c), {
+  const liked = await likePost(getDatabase(c), {
     postId,
     userId,
-    createdAt: Math.floor(Date.now() / 1000),
+    createdAt: Math.floor(Date.now() / 1000)
   });
+
+  if (!liked) {
+    return c.json({ error: "Not Found" }, 404);
+  }
 
   return c.body(null, 204);
 });

@@ -2,9 +2,7 @@ import type {
   BarRow,
   PostRow,
   StopRow,
-  UserRow,
-  CommentRow,
-  LikeRow
+  UserRow
 } from "../db/schema";
 
 export const listBars = async (db: D1Database) => {
@@ -129,7 +127,6 @@ export const getPostDetails = async (
     .bind(postId)
     .all<Record<string, unknown>>();
 
-  const comments = await listComments(db, postId);
   return {
     id: post.id,
     userId: post.user_id,
@@ -558,14 +555,39 @@ export const createComment = async (
     )
     .run();
 
-  return db
+  const row = await db
     .prepare(
-      `SELECT id, post_id, user_id, content, published_at
-       FROM comments
-       WHERE id = ?`
+      `SELECT
+         c.id,
+         c.post_id,
+         c.user_id,
+         c.content,
+         c.published_at,
+         u.username,
+         u.display_name,
+         u.avatar_url
+       FROM comments c
+       JOIN users u ON u.id = c.user_id
+       WHERE c.id = ?`
     )
     .bind(commentId)
-    .first<CommentRow>();
+    .first<Record<string, unknown>>();
+
+  if (!row) return null;
+
+  return {
+    id: row.id,
+    postId: row.post_id,
+    userId: row.user_id,
+    content: row.content,
+    publishedAt: row.published_at,
+    author: {
+      id: row.user_id,
+      username: row.username,
+      displayName: row.display_name,
+      avatarUrl: row.avatar_url
+    }
+  };
 };
 
 export const deleteComment = async (
@@ -593,6 +615,15 @@ export const likePost = async (
     createdAt: number;
   }
 ) => {
+  const post = await db
+    .prepare(
+      "SELECT id FROM posts WHERE id = ? AND status = 'published' LIMIT 1"
+    )
+    .bind(input.postId)
+    .first<{ id: string }>();
+
+  if (!post) return false;
+
   await db
     .prepare(
       `INSERT OR IGNORE INTO likes
@@ -601,6 +632,8 @@ export const likePost = async (
     )
     .bind(input.postId, input.userId, input.createdAt)
     .run();
+
+  return true;
 };
 
 export const unlikePost = async (
