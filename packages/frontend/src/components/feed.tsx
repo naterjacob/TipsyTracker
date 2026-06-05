@@ -72,6 +72,7 @@ export default function Feed({ refreshToken }: FeedProps) {
       {posts.map((post) => (
         <Post
           key={post.id}
+          id={post.id}
           displayName={post.author.displayName}
           username={post.author.username}
           avatarUrl={post.author.avatarUrl}

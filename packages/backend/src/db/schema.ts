@@ -1,6 +1,7 @@
 import {
   index,
   integer,
+  uniqueIndex,
   sqliteTable,
   text
 } from "drizzle-orm/sqlite-core";
@@ -65,6 +66,50 @@ export const stops = sqliteTable(
       table.postId,
       table.stopOrder
     )
+  })
+);
+
+export const comments = sqliteTable(
+  "comments",
+  {
+    id: text("id").primaryKey(),
+    postId: text("post_id")
+      .notNull()
+      .references(() => posts.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    content: text("content").notNull(),
+    publishedAt: integer("published_at").notNull()
+  },
+  (table) => ({
+    commentsPostPublishedIdx: index(
+      "idx_comments_post_published"
+    ).on(table.postId, table.publishedAt),
+    commentsUserIdx: index("idx_comments_user").on(
+      table.userId
+    )
+  })
+);
+
+export const likes = sqliteTable(
+  "likes",
+  {
+    postId: text("post_id")
+      .notNull()
+      .references(() => posts.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: integer("created_at").notNull()
+  },
+  (table) => ({
+    likesPostUserIdx: uniqueIndex("idx_likes_post_user").on(
+      table.postId,
+      table.userId
+    ),
+    likesPostIdx: index("idx_likes_post").on(table.postId),
+    likesUserIdx: index("idx_likes_user").on(table.userId)
   })
 );
 
