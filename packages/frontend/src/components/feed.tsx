@@ -1,6 +1,11 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { Stack } from "@mui/material";
+import { useUser } from "@clerk/clerk-react";
 import { useAuthedFetch } from "../lib/api";
 import Post from "./post";
+import Loading from "./ui/Loading";
+import ErrorState from "./ui/ErrorState";
+import EmptyState from "./ui/EmptyState";
 
 type FeedPost = {
   id: string;
@@ -21,9 +26,11 @@ type FeedProps = {
 
 export default function Feed({ refreshToken }: FeedProps) {
   const authedFetch = useAuthedFetch();
+  const { user } = useUser();
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [retryToken, setRetryToken] = useState(0);
 
   useEffect(() => {
     let isMounted = true;
@@ -53,22 +60,40 @@ export default function Feed({ refreshToken }: FeedProps) {
     return () => {
       isMounted = false;
     };
-  }, [authedFetch, refreshToken]);
+  }, [authedFetch, refreshToken, retryToken]);
+
+  const retry = useCallback(() => setRetryToken((value) => value + 1), []);
+
+  const handleDeleted = useCallback(
+    (id: string) => setPosts((current) => current.filter((p) => p.id !== id)),
+    []
+  );
+
+  const myUsername = user?.username?.toLowerCase() ?? null;
 
   if (isLoading) {
-    return <p>Loading feed...</p>;
+    return <Loading label="Loading feed…" />;
   }
 
   if (error) {
-    return <p>{error}</p>;
+    return <ErrorState message={error} onRetry={retry} />;
   }
 
   if (posts.length === 0) {
-    return <p>No posts yet.</p>;
+    return (
+      <EmptyState
+        title="No posts yet"
+        description="Be the first to log a night out. Tap “New post” to get started."
+      />
+    );
   }
 
   return (
-    <section className="home-feed" aria-label="Feed posts">
+    <Stack
+      component="section"
+      spacing={2}
+      aria-label="Feed posts"
+    >
       {posts.map((post) => (
         <Post
           key={post.id}
@@ -80,8 +105,13 @@ export default function Feed({ refreshToken }: FeedProps) {
           barCount={post.barCount}
           totalDrinks={post.totalDrinks}
           publishedAt={post.publishedAt}
+          isOwn={
+            !!myUsername &&
+            post.author.username?.toLowerCase() === myUsername
+          }
+          onDeleted={handleDeleted}
         />
       ))}
-    </section>
+    </Stack>
   );
 }

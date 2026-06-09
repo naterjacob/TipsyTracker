@@ -10,10 +10,13 @@ import {
   DialogTitle,
   Stack,
   TextField,
-  Typography
+  Typography,
+  useMediaQuery
 } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import { useEffect, useState } from "react";
 import { useAuthedFetch } from "../lib/api";
+import Loading from "./ui/Loading";
 
 type CommentProps = {
   postId: string;
@@ -34,20 +37,12 @@ type Comment = {
 
 export default function Comment({ postId, onClose }: CommentProps) {
   const authedFetch = useAuthedFetch();
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [isPosting, setIsPosting] = useState(false);
-
-  async function fetchComments() {
-    const res = await authedFetch(`/api/posts/${postId}/comments`);
-    if (!res.ok) {
-      console.error("Failed to fetch comments", res.status);
-      return;
-    }
-
-    const data = (await res.json()) as { comments: Comment[] };
-    setComments(data.comments);
-  }
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let isCurrent = true;
@@ -56,12 +51,14 @@ export default function Comment({ postId, onClose }: CommentProps) {
       async (res) => {
         if (!res.ok) {
           console.error("Failed to fetch comments", res.status);
+          if (isCurrent) setIsLoading(false);
           return;
         }
 
         const data = (await res.json()) as { comments: Comment[] };
         if (isCurrent) {
           setComments(data.comments);
+          setIsLoading(false);
         }
       }
     );
@@ -97,7 +94,6 @@ export default function Comment({ postId, onClose }: CommentProps) {
 
     setComments((prev) => [data.comment, ...prev]);
     setNewComment("");
-    await fetchComments();
   }
 
   return (
@@ -106,6 +102,7 @@ export default function Comment({ postId, onClose }: CommentProps) {
       onClose={onClose}
       maxWidth="md"
       fullWidth
+      fullScreen={fullScreen}
       scroll="paper"
     >
       <DialogTitle>Comments</DialogTitle>
@@ -122,40 +119,50 @@ export default function Comment({ postId, onClose }: CommentProps) {
             onChange={(event) => setNewComment(event.target.value)}
             slotProps={{ htmlInput: { maxLength: 240 } }}
           />
-          {comments.map((comment) => (
-            <Card key={comment.id} sx={{ mb: 2 }}>
-              <CardHeader
-                title={
-                  comment.author?.displayName ||
-                  comment.author?.username ||
-                  "Unknown user"
-                }
-                subheader={`${
-                  comment.author?.username
-                    ? `@${comment.author.username}`
-                    : "No username"
-                } · ${new Date(
-                  comment.publishedAt * 1000
-                ).toLocaleDateString()}`}
-                avatar={
-                  <Avatar src={comment.author?.avatarUrl ?? undefined}>
-                    {comment.author?.displayName?.[0]?.toUpperCase() ||
-                      comment.author?.username?.[0]?.toUpperCase() ||
-                      "U"}
-                  </Avatar>
-                }
-                sx={{
-                  borderBottom: 1,
-                  borderBottomColor: "divider"
-                }}
-              />
-              <CardContent>
-                <Typography variant="body1">
-                  {comment.content}
-                </Typography>
-              </CardContent>
-            </Card>
-          ))}
+          {isLoading ? (
+            <Loading label="Loading comments…" />
+          ) : comments.length === 0 ? (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ textAlign: "center", py: 2 }}
+            >
+              No comments yet. Be the first to say something.
+            </Typography>
+          ) : (
+            comments.map((comment) => (
+              <Card key={comment.id} sx={{ mb: 2 }}>
+                <CardHeader
+                  title={
+                    comment.author?.displayName ||
+                    comment.author?.username ||
+                    "Unknown user"
+                  }
+                  subheader={`${
+                    comment.author?.username
+                      ? `@${comment.author.username}`
+                      : "No username"
+                  } · ${new Date(
+                    comment.publishedAt * 1000
+                  ).toLocaleDateString()}`}
+                  avatar={
+                    <Avatar src={comment.author?.avatarUrl ?? undefined}>
+                      {comment.author?.displayName?.[0]?.toUpperCase() ||
+                        comment.author?.username?.[0]?.toUpperCase() ||
+                        "U"}
+                    </Avatar>
+                  }
+                  sx={{
+                    borderBottom: 1,
+                    borderBottomColor: "divider"
+                  }}
+                />
+                <CardContent>
+                  <Typography variant="body1">{comment.content}</Typography>
+                </CardContent>
+              </Card>
+            ))
+          )}
         </Stack>
       </DialogContent>
       <DialogActions>

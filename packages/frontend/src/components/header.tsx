@@ -5,20 +5,30 @@ import {
   AppBar,
   Box,
   Button,
+  Chip,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  Divider,
   FormControl,
+  IconButton,
   InputLabel,
   MenuItem,
   Select,
+  Snackbar,
   Stack,
   TextField,
   Toolbar,
-  Typography
+  Typography,
+  useMediaQuery
 } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import PersonIcon from "@mui/icons-material/Person";
+import AddIcon from "@mui/icons-material/Add";
+import DeleteOutlinedIcon from "@mui/icons-material/DeleteOutlined";
+import PlaceIcon from "@mui/icons-material/Place";
+import Loading from "./ui/Loading";
 import { useAuthedFetch } from "../lib/api";
 
 type HeaderProps = {
@@ -41,21 +51,29 @@ export default function Header({ onPostCreated = () => { } }: HeaderProps) {
   const navigate = useNavigate();
   const authedFetch = useAuthedFetch();
   const { user } = useUser();
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const [showPost, setShowPost] = useState(false);
   const [bars, setBars] = useState<Bar[]>([]);
+  const [isLoadingBars, setIsLoadingBars] = useState(false);
   const [caption, setCaption] = useState("");
   const [stops, setStops] = useState<DraftStopInput[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   useEffect(() => {
     if (!showPost) return;
     let isMounted = true;
 
     async function loadBars() {
+      setIsLoadingBars(true);
       const response = await authedFetch("/api/bars");
       if (!response.ok) {
-        if (isMounted) setErrorMessage("Failed to load bars.");
+        if (isMounted) {
+          setErrorMessage("Failed to load bars.");
+          setIsLoadingBars(false);
+        }
         return;
       }
 
@@ -63,6 +81,7 @@ export default function Header({ onPostCreated = () => { } }: HeaderProps) {
       if (!isMounted) return;
       const nextBars = data.bars ?? [];
       setBars(nextBars);
+      setIsLoadingBars(false);
       setStops((current) =>
         current.length > 0
           ? current
@@ -172,13 +191,21 @@ export default function Header({ onPostCreated = () => { } }: HeaderProps) {
       return;
     }
 
+    // If any later step fails, delete the orphaned draft so it doesn't linger.
+    const failWith = async (message: string) => {
+      await authedFetch(`/api/posts/${postId}`, { method: "DELETE" }).catch(
+        () => {}
+      );
+      setIsSaving(false);
+      setErrorMessage(message);
+    };
+
     const captionResponse = await authedFetch(`/api/posts/${postId}`, {
       method: "PATCH",
       body: JSON.stringify({ caption: caption.trim() || null })
     });
     if (!captionResponse.ok) {
-      setIsSaving(false);
-      setErrorMessage("Could not save caption.");
+      await failWith("Could not save caption.");
       return;
     }
 
@@ -192,8 +219,7 @@ export default function Header({ onPostCreated = () => { } }: HeaderProps) {
         })
       });
       if (!stopResponse.ok) {
-        setIsSaving(false);
-        setErrorMessage("Could not add one of the stops.");
+        await failWith("Could not add one of the stops.");
         return;
       }
     }
@@ -201,60 +227,64 @@ export default function Header({ onPostCreated = () => { } }: HeaderProps) {
     const publishResponse = await authedFetch(`/api/posts/${postId}/publish`, {
       method: "POST"
     });
-    setIsSaving(false);
 
     if (!publishResponse.ok) {
-      setErrorMessage("Could not publish post.");
+      await failWith("Could not publish post.");
       return;
     }
 
+    setIsSaving(false);
     closeComposer();
+    setShowSuccess(true);
     onPostCreated();
   }
 
   return (
     <Box sx={{ flexGrow: 1 }}>
-      <AppBar position="static" sx={{ backgroundColor: "#ffffff", mb:2 }}>
+      <AppBar position="static" sx={{ mb: 2 }}>
         <Toolbar>
-          <Button
-            onClick={() =>
-              navigate(`/home`)
-            }
+          <Typography
+            component="button"
+            onClick={() => navigate(`/home`)}
+            aria-label="TipsyTracker home"
             sx={{
-              flexGrow: 0,
-              color: "#034078",
-              fontFamily: "sans-serif",
+              border: "none",
+              background: "none",
+              p: 0,
+              cursor: "pointer",
+              color: "primary.main",
               fontStyle: "italic",
-              textTransform: "none",
-              fontSize: "2rem",
+              fontSize: "1.75rem",
               fontWeight: "bold",
-              justifyContent: "flex-start",
-              '&:hover': {
-                backgroundColor: 'transparent',
-                color: '#034078',
-              }
-
+              fontFamily: "inherit",
+              "&:hover": { opacity: 0.85 },
             }}
           >
             TipsyTracker
-          </Button>
+          </Typography>
 
           <Box sx={{ flexGrow: 1 }} />
 
           <Stack spacing={2} direction="row" sx={{ alignItems: "center" }}>
             <Button
-              variant="outlined"
-              sx={{
-                color: "#034078",
-                borderColor: "#034078",
-                fontWeight: 800,
-                fontSize: 24
-              }}
+              variant="contained"
+              color="primary"
+              startIcon={<AddIcon />}
               onClick={() => setShowPost(true)}
               type="button"
+              aria-label="Create a new post"
+              sx={{ display: { xs: "none", sm: "inline-flex" } }}
             >
-              +
+              New post
             </Button>
+            <IconButton
+              color="primary"
+              onClick={() => setShowPost(true)}
+              aria-label="Create a new post"
+              sx={{ display: { xs: "inline-flex", sm: "none" } }}
+            >
+              <AddIcon />
+            </IconButton>
 
             {user ? (
               <UserButton
@@ -275,9 +305,7 @@ export default function Header({ onPostCreated = () => { } }: HeaderProps) {
                   <UserButton.Action
                     label="Account"
                     labelIcon={<PersonIcon />}
-                    onClick={() =>
-                      navigate(`/users/${user.username ?? user.id}`)
-                    }
+                    onClick={() => navigate(`/account`)}
                   />
                 </UserButton.MenuItems>
               </UserButton>
@@ -291,122 +319,196 @@ export default function Header({ onPostCreated = () => { } }: HeaderProps) {
         open={showPost}
         maxWidth="md"
         fullWidth
+        fullScreen={fullScreen}
       >
         <Box component="form" onSubmit={handleCreatePost}>
-          <DialogTitle>Make a post</DialogTitle>
+          <DialogTitle sx={{ pb: 0.5 }}>
+            New post
+            <Typography variant="body2" color="text.secondary">
+              Log your night out, one stop at a time.
+            </Typography>
+          </DialogTitle>
           <DialogContent>
-            <Stack spacing={2} sx={{ pt: 1 }}>
-              <TextField
-                autoFocus
-                multiline
-                minRows={3}
-                placeholder="Write a caption..."
-                fullWidth
-                variant="filled"
-                value={caption}
-                onChange={(event) => setCaption(event.target.value)}
-                slotProps={{ htmlInput: { maxLength: 240 } }}
-              />
+            {isLoadingBars ? (
+              <Loading label="Loading bars…" />
+            ) : (
+              <Stack spacing={3} sx={{ pt: 2 }}>
+                <TextField
+                  autoFocus
+                  multiline
+                  minRows={2}
+                  label="Caption"
+                  placeholder="How was the night?"
+                  fullWidth
+                  value={caption}
+                  onChange={(event) => setCaption(event.target.value)}
+                  slotProps={{ htmlInput: { maxLength: 240 } }}
+                  helperText={`${caption.length}/240`}
+                />
 
-              {stops.map((stop, index) => (
-                <Stack
-                  key={`stop-${index}`}
-                  spacing={1.5}
-                  sx={{
-                    border: "1px solid #dbe4ea",
-                    borderRadius: 1,
-                    p: 2
-                  }}
-                >
-                  <Typography variant="subtitle2">Stop {index + 1}</Typography>
-                  <FormControl fullWidth>
-                    <InputLabel>Bar</InputLabel>
-                    <Select
-                      value={stop.barId}
-                      label="Bar"
-                      onChange={(event) =>
-                        updateStop(index, "barId", event.target.value)
-                      }
-                      required
-                    >
-                      {bars.map((bar) => (
-                        <MenuItem key={bar.id} value={bar.id}>
-                          {bar.neighborhood
-                            ? `${bar.name} (${bar.neighborhood})`
-                            : bar.name}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                <Box>
+                  <Stack
+                    direction="row"
+                    sx={{
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      mb: 1
+                    }}
+                  >
+                    <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                      Stops
+                    </Typography>
+                    <Chip
+                      size="small"
+                      label={`${stops.reduce(
+                        (sum, stop) => sum + stop.drinkCount,
+                        0
+                      )} drinks total`}
+                      color="primary"
+                      variant="outlined"
+                    />
+                  </Stack>
 
-                  <TextField
-                    label="Drinks at stop"
-                    type="number"
-                    slotProps={{ htmlInput: { min: 1 } }}
-                    value={stop.drinkCount}
-                    onChange={(event) =>
-                      updateStop(
-                        index,
-                        "drinkCount",
-                        Math.max(1, Number(event.target.value) || 1)
-                      )
-                    }
-                  />
+                  <Stack spacing={2}>
+                    {stops.map((stop, index) => (
+                      <Box
+                        key={`stop-${index}`}
+                        sx={{
+                          border: 1,
+                          borderColor: "divider",
+                          borderRadius: 2,
+                          p: 2,
+                          bgcolor: "background.default"
+                        }}
+                      >
+                        <Stack
+                          direction="row"
+                          sx={{
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            mb: 1.5
+                          }}
+                        >
+                          <Stack
+                            direction="row"
+                            spacing={1}
+                            sx={{ alignItems: "center" }}
+                          >
+                            <PlaceIcon fontSize="small" color="primary" />
+                            <Typography
+                              variant="subtitle2"
+                              sx={{ fontWeight: 700 }}
+                            >
+                              Stop {index + 1}
+                            </Typography>
+                          </Stack>
+                          <IconButton
+                            aria-label={`Remove stop ${index + 1}`}
+                            size="small"
+                            onClick={() => removeStop(index)}
+                            disabled={stops.length <= 1}
+                          >
+                            <DeleteOutlinedIcon fontSize="small" />
+                          </IconButton>
+                        </Stack>
 
-                  <TextField
-                    label="Stop note (optional)"
-                    value={stop.note}
-                    onChange={(event) =>
-                      updateStop(index, "note", event.target.value)
-                    }
-                    slotProps={{ htmlInput: { maxLength: 120 } }}
-                  />
+                        <Stack spacing={1.5}>
+                          <FormControl fullWidth size="small">
+                            <InputLabel>Bar</InputLabel>
+                            <Select
+                              value={stop.barId}
+                              label="Bar"
+                              onChange={(event) =>
+                                updateStop(index, "barId", event.target.value)
+                              }
+                              required
+                            >
+                              {bars.map((bar) => (
+                                <MenuItem key={bar.id} value={bar.id}>
+                                  {bar.neighborhood
+                                    ? `${bar.name} · ${bar.neighborhood}`
+                                    : bar.name}
+                                </MenuItem>
+                              ))}
+                            </Select>
+                          </FormControl>
 
-                  <Box>
-                    <Button
-                      type="button"
-                      onClick={() => removeStop(index)}
-                      disabled={stops.length <= 1}
-                    >
-                      Remove Stop
-                    </Button>
-                  </Box>
-                </Stack>
-              ))}
+                          <Stack
+                            direction={{ xs: "column", sm: "row" }}
+                            spacing={1.5}
+                          >
+                            <TextField
+                              label="Drinks"
+                              type="number"
+                              slotProps={{ htmlInput: { min: 1 } }}
+                              value={stop.drinkCount}
+                              onChange={(event) =>
+                                updateStop(
+                                  index,
+                                  "drinkCount",
+                                  Math.max(1, Number(event.target.value) || 1)
+                                )
+                              }
+                              sx={{ width: { xs: "100%", sm: 120 } }}
+                            />
+                            <TextField
+                              label="Note (optional)"
+                              placeholder="What did you drink?"
+                              value={stop.note}
+                              onChange={(event) =>
+                                updateStop(index, "note", event.target.value)
+                              }
+                              slotProps={{ htmlInput: { maxLength: 120 } }}
+                              sx={{ flexGrow: 1 }}
+                            />
+                          </Stack>
+                        </Stack>
+                      </Box>
+                    ))}
+                  </Stack>
 
-              <Box>
-                <Button type="button" onClick={addStop}>
-                  Add Stop
-                </Button>
-              </Box>
+                  <Button
+                    type="button"
+                    onClick={addStop}
+                    startIcon={<AddIcon />}
+                    sx={{ mt: 2 }}
+                  >
+                    Add another stop
+                  </Button>
+                </Box>
 
-              <Typography variant="body2">
-                Total drinks:{" "}
-                {stops.reduce((sum, stop) => sum + stop.drinkCount, 0)}
-              </Typography>
-
-              {errorMessage ? (
-                <Typography color="error" variant="body2">
-                  {errorMessage}
-                </Typography>
-              ) : null}
-            </Stack>
+                {errorMessage ? (
+                  <Typography color="error" variant="body2">
+                    {errorMessage}
+                  </Typography>
+                ) : null}
+              </Stack>
+            )}
           </DialogContent>
 
-          <DialogActions>
-            <Button onClick={closeComposer} type="button">
+          <Divider />
+          <DialogActions sx={{ px: 3, py: 2 }}>
+            <Button onClick={closeComposer} type="button" color="inherit">
               Cancel
             </Button>
             <Button
               type="submit"
               variant="contained"
-              disabled={isSaving || bars.length === 0}
+              disabled={isSaving || isLoadingBars || bars.length === 0}
             >
-              {isSaving ? "Posting..." : "Post"}
+              {isSaving ? "Posting…" : "Share post"}
             </Button>
           </DialogActions>
         </Box>
       </Dialog>
+
+      <Snackbar
+        open={showSuccess}
+        autoHideDuration={3000}
+        onClose={() => setShowSuccess(false)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+        message="Post shared!"
+      />
     </Box>
   );
 }

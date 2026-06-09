@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
+import {
+  Avatar,
+  Box,
+  Card,
+  CardContent,
+  Stack,
+  Typography
+} from "@mui/material";
 import { useAuthedFetch } from "../lib/api";
-import "./rightSidebar.css";
 
 type FeedPost = {
   id: string;
@@ -24,12 +31,12 @@ const hangoverCures = [
   {
     title: "Hydrate first",
     description:
-      "Drink water or an electrolyte drink before coffee. Dehydration is usually the first thing to fix.",
+      "Drink water or an electrolyte drink before coffee. Rehydrating is usually the first thing to fix.",
   },
   {
     title: "Eat something simple",
     description:
-      "Toast, eggs, bananas, soup, or oatmeal can help settle your stomach and bring your energy back. Carbs are your best friend.",
+      "Toast, eggs, bananas, or oatmeal can settle your stomach and bring your energy back. Carbs are your friend.",
   },
   {
     title: "Get extra sleep",
@@ -42,23 +49,24 @@ const hangoverCures = [
       "Skip intense workouts until you feel normal. A light walk is usually better than pushing hard.",
   },
   {
-    title: "Avoid more alcohol",
+    title: "Go easy on more alcohol",
     description:
-      "The “hair of the dog” usually delays recovery. Give your body time to catch up.",
+      "The “hair of the dog” usually just delays recovery. Give your body time to catch up.",
   },
   {
-    title: "Hair of the dog",
+    title: "Caffeine in moderation",
     description:
-      "Pending on your plans for day and productivity level if you still wake up feeling it sometimes another drink isn't the end of the world.",
-  },{
-    title: "Yak it all out",
-    description:
-      "If you feel nauseated still, sometimes the best way to get over it is to pull trig and get it all out of your system. Just make sure after you get it all out to have something to eat and drink and brush your teeth.",
+      "A little caffeine can help you feel human again, but pair it with water so you don't get more dehydrated.",
   },
   {
-    title: "Redbull no vodka",
+    title: "Settle your stomach",
     description:
-      "Make sure to properly drink electrolytes, but caffeine can give that little extra boost needed to get you through the day or keep you going until the next nap. drinking an energy drink and taking a power nap right after is the key.",
+      "If you feel nauseated, ginger tea or an antacid can help. Once it passes, eat something light and brush your teeth.",
+  },
+  {
+    title: "Plan ahead next time",
+    description:
+      "Alternating water between drinks and eating before you go out makes the next morning much easier.",
   },
 ];
 
@@ -157,56 +165,82 @@ export default function RightSidebar() {
   }, [authedFetch]);
 
 
+  const eyebrowSx = {
+    color: "text.secondary",
+    fontSize: "0.72rem",
+    fontWeight: 700,
+    letterSpacing: "0.08em",
+    textTransform: "uppercase" as const,
+    mb: 0.5
+  };
+
   return (
-    <aside className="right-sidebar" aria-label="Tips and leaderboard">
-      <section className="sidebar-card cure-card" aria-label="Hangover cures">
-    <p className="sidebar-eyebrow">Hangover cure</p>
-    <h2>{currentCure.title}</h2>
-    <p>{currentCure.description}</p>
-    </section>
+    <Stack spacing={2} component="aside" aria-label="Tips and leaderboard">
+      <Card aria-label="Hangover cures">
+        <CardContent>
+          <Typography sx={eyebrowSx}>Hangover cure</Typography>
+          <Typography variant="h6" sx={{ mb: 1 }}>
+            {currentCure.title}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {currentCure.description}
+          </Typography>
+        </CardContent>
+      </Card>
 
-      <section
-        className="sidebar-card leaderboard-card"
-        aria-label="Prior night drink leaderboard"
-      >
-        <p className="sidebar-eyebrow">Last night</p>
-        <h2>Top drinkers</h2>
+      <Card aria-label="Prior night drink leaderboard">
+        <CardContent>
+          <Typography sx={eyebrowSx}>Last night · 6pm–6am</Typography>
+          <Typography variant="h6" sx={{ mb: 1.5 }}>
+            Top drinkers
+          </Typography>
 
-        {leaderboard.length === 0 ? (
-          <p className="empty-leaderboard">
-            No drinks logged from last night yet.
-          </p>
-        ) : (
-          <ol className="leaderboard-list">
-            {leaderboard.map((entry, index) => (
-              <li key={entry.username ?? entry.name} className="leaderboard-row">
-                <span className="leaderboard-rank">#{index + 1}</span>
-
-                {entry.avatarUrl ? (
-                  <img
-                    className="leaderboard-avatar"
-                    src={entry.avatarUrl}
-                    alt=""
-                  />
-                ) : (
-                  <span className="leaderboard-avatar leaderboard-avatar-fallback">
+          {leaderboard.length === 0 ? (
+            <Typography variant="body2" color="text.secondary">
+              No drinks logged during last night's window (6pm–6am) yet.
+            </Typography>
+          ) : (
+            <Stack spacing={1.5} component="ol" sx={{ m: 0, p: 0, listStyle: "none" }}>
+              {leaderboard.map((entry, index) => (
+                <Stack
+                  key={entry.username ?? entry.name}
+                  component="li"
+                  direction="row"
+                  spacing={1.25}
+                  sx={{ alignItems: "center" }}
+                >
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ fontWeight: 700, width: 24 }}
+                  >
+                    #{index + 1}
+                  </Typography>
+                  <Avatar
+                    src={entry.avatarUrl ?? undefined}
+                    sx={{ width: 34, height: 34, fontSize: "0.8rem" }}
+                  >
                     {initialsFor(entry.name)}
-                  </span>
-                )}
-
-                <span className="leaderboard-person">
-                  <strong>{entry.name}</strong>
-                  {entry.username ? <small>@{entry.username}</small> : null}
-                </span>
-
-                <strong className="leaderboard-drinks">
-                  {entry.totalDrinks}
-                </strong>
-              </li>
-            ))}
-          </ol>
-        )}
-      </section>
-    </aside>
+                  </Avatar>
+                  <Box sx={{ minWidth: 0, flexGrow: 1 }}>
+                    <Typography sx={{ fontWeight: 700 }} noWrap>
+                      {entry.name}
+                    </Typography>
+                    {entry.username ? (
+                      <Typography variant="caption" color="text.secondary" noWrap>
+                        @{entry.username}
+                      </Typography>
+                    ) : null}
+                  </Box>
+                  <Typography sx={{ fontWeight: 700 }}>
+                    {entry.totalDrinks}
+                  </Typography>
+                </Stack>
+              ))}
+            </Stack>
+          )}
+        </CardContent>
+      </Card>
+    </Stack>
   );
 }

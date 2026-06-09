@@ -2,9 +2,12 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { ClerkProvider } from "@clerk/clerk-react";
+import { ThemeProvider } from "@mui/material/styles";
+import CssBaseline from "@mui/material/CssBaseline";
 
 import App from "./App";
-import "./main.css";
+import theme from "./theme";
+import "./index.css";
 
 const container = document.getElementById("root");
 
@@ -20,10 +23,13 @@ if (!publishableKey) {
 
 createRoot(container).render(
   <StrictMode>
-    <ClerkProvider publishableKey={publishableKey}>
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
-    </ClerkProvider>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <ClerkProvider publishableKey={publishableKey}>
+        <BrowserRouter>
+          <App />
+        </BrowserRouter>
+      </ClerkProvider>
+    </ThemeProvider>
   </StrictMode>
 );
