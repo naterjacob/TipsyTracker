@@ -1,0 +1,14 @@
+/* Minimal globals. MUI's CssBaseline handles the rest of the reset. */
+:root {
+  color-scheme: light;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+}

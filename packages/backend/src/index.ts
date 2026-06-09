@@ -12,7 +12,9 @@ import {
   createDraftPost,
   deleteDraftPost,
   deleteDraftStop,
+  deletePost,
   getPostDetails,
+  getUserIdByUsername,
   getUserProfile,
   listBars,
   listFeed,
@@ -112,7 +114,7 @@ app.post("/api/auth/sync", async (c) => {
   const auth = await requireAuth(c, async () => {});
   if (auth) return auth;
   const userId = c.get("userId");
-  await syncUser(getDatabase(c), {
+  const { hasProfile } = await syncUser(getDatabase(c), {
     userId,
     username: null,
     displayName: null,
@@ -120,7 +122,7 @@ app.post("/api/auth/sync", async (c) => {
     now: Math.floor(Date.now() / 1000)
   });
 
-  return c.json({ ok: true, userId });
+  return c.json({ ok: true, userId, hasProfile });
 });
 
 app.get("/api/feed", async (c) => {
@@ -217,7 +219,7 @@ app.delete("/api/posts/:id", async (c) => {
   if (auth) return auth;
   const userId = c.get("userId");
   const postId = c.req.param("id");
-  const deleted = await deleteDraftPost(getDatabase(c), {
+  const deleted = await deletePost(getDatabase(c), {
     postId,
     userId
   });
@@ -312,6 +314,32 @@ app.get("/api/users/:id/posts", async (c) => {
   const auth = await requireAuth(c, async () => {});
   if (auth) return auth;
   const userId = c.req.param("id");
+  const limit = clampLimit(c.req.query("limit"));
+  const cursor = parseCursor(c.req.query("cursor"));
+  const { posts, nextCursor } = await listUserPosts(
+    getDatabase(c),
+    { userId, limit, cursor }
+  );
+  return c.json({ posts, nextCursor });
+});
+
+app.get("/api/users/by-username/:username", async (c) => {
+  const auth = await requireAuth(c, async () => {});
+  if (auth) return auth;
+  const username = c.req.param("username");
+  const userId = await getUserIdByUsername(getDatabase(c), username);
+  if (!userId) return c.json({ error: "Not Found" }, 404);
+  const profile = await getUserProfile(getDatabase(c), userId);
+  if (!profile) return c.json({ error: "Not Found" }, 404);
+  return c.json(profile);
+});
+
+app.get("/api/users/by-username/:username/posts", async (c) => {
+  const auth = await requireAuth(c, async () => {});
+  if (auth) return auth;
+  const username = c.req.param("username");
+  const userId = await getUserIdByUsername(getDatabase(c), username);
+  if (!userId) return c.json({ error: "Not Found" }, 404);
   const limit = clampLimit(c.req.query("limit"));
   const cursor = parseCursor(c.req.query("cursor"));
   const { posts, nextCursor } = await listUserPosts(

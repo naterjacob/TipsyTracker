@@ -41,6 +41,13 @@ export const syncUser = async (
       input.now
     )
     .run();
+
+  const row = await db
+    .prepare("SELECT username FROM users WHERE id = ?")
+    .bind(input.userId)
+    .first<{ username: string | null }>();
+
+  return { hasProfile: Boolean(row?.username) };
 };
 
 export const listFeed = async (
@@ -263,6 +270,32 @@ export const deleteDraftPost = async (
   return result.success && (result.meta.changes ?? 0) > 0;
 };
 
+/** Delete a post owned by the user (any status), cleaning up child rows. */
+export const deletePost = async (
+  db: D1Database,
+  input: { postId: string; userId: string }
+) => {
+  // Verify ownership first so we don't delete children of someone else's post.
+  const owner = await db
+    .prepare("SELECT id FROM posts WHERE id = ? AND user_id = ? LIMIT 1")
+    .bind(input.postId, input.userId)
+    .first<{ id: string }>();
+  if (!owner) return false;
+
+  // Explicit child cleanup (D1 does not guarantee FK cascade enforcement).
+  await db.prepare("DELETE FROM likes WHERE post_id = ?").bind(input.postId).run();
+  await db
+    .prepare("DELETE FROM comments WHERE post_id = ?")
+    .bind(input.postId)
+    .run();
+  await db.prepare("DELETE FROM stops WHERE post_id = ?").bind(input.postId).run();
+  const result = await db
+    .prepare("DELETE FROM posts WHERE id = ? AND user_id = ?")
+    .bind(input.postId, input.userId)
+    .run();
+  return result.success && (result.meta.changes ?? 0) > 0;
+};
+
 export const addDraftStop = async (
   db: D1Database,
   input: {
@@ -380,6 +413,18 @@ export const deleteDraftStop = async (
     .bind(input.stopId, input.postId)
     .run();
   return result.success && (result.meta.changes ?? 0) > 0;
+};
+
+/** Resolve a username (case-insensitive) to the internal user id. */
+export const getUserIdByUsername = async (
+  db: D1Database,
+  username: string
+) => {
+  const row = await db
+    .prepare("SELECT id FROM users WHERE username = ? COLLATE NOCASE")
+    .bind(username.trim().toLowerCase())
+    .first<{ id: string }>();
+  return row?.id ?? null;
 };
 
 export const getUserProfile = async (

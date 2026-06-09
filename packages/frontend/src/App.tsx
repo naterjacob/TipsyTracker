@@ -1,41 +1,25 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 
 import LogIn from "./pages/logIn";
 import SignUpPage from "./pages/signUp";
 import Home from "./pages/home";
 import Onboarding from "./pages/onboarding";
 import Account from "./pages/account";
+import NotFound from "./pages/notFound";
 import ProtectedRoute from "./components/ProtectedRoute";
-import AuthSync from "./components/AuthSync";
+import RootRedirect from "./components/RootRedirect";
+import RequireProfile from "./components/RequireProfile";
+import { ProfileProvider } from "./lib/profile";
 
 function App() {
   return (
-    <>
-      <AuthSync />
-
+    <ProfileProvider>
       <Routes>
-        <Route path="/" element={<Navigate to="/sign-in" replace />} />
+        <Route path="/" element={<RootRedirect />} />
         <Route path="/sign-in/*" element={<LogIn />} />
         <Route path="/sign-up/*" element={<SignUpPage />} />
 
-        <Route
-          path="/home"
-          element={
-            <ProtectedRoute>
-              <Home />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/users/:username"
-          element={
-            <ProtectedRoute>
-              <Account />
-            </ProtectedRoute>
-          }
-        />
-
+        {/* Onboarding: must be signed in, but NOT yet have a profile. */}
         <Route
           path="/onboarding"
           element={
@@ -45,16 +29,41 @@ function App() {
           }
         />
 
+        {/* Everything below requires a completed profile. */}
+        <Route
+          path="/home"
+          element={
+            <ProtectedRoute>
+              <RequireProfile>
+                <Home />
+              </RequireProfile>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/users/:username"
+          element={
+            <ProtectedRoute>
+              <RequireProfile>
+                <Account />
+              </RequireProfile>
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/account"
           element={
             <ProtectedRoute>
-              <Account />
+              <RequireProfile>
+                <Account />
+              </RequireProfile>
             </ProtectedRoute>
           }
         />
+
+        <Route path="*" element={<NotFound />} />
       </Routes>
-    </>
+    </ProfileProvider>
   );
 }
 

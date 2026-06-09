@@ -1,9 +1,25 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useClerk, useUser } from "@clerk/clerk-react";
-import { useNavigate } from "react-router-dom";
-import Header from "../components/header";
+import { useNavigate, useParams } from "react-router-dom";
+import {
+  Alert,
+  Avatar,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Divider,
+  IconButton,
+  Stack,
+  TextField,
+  Typography
+} from "@mui/material";
+import DeleteOutlinedIcon from "@mui/icons-material/DeleteOutlined";
 import { useAuthedFetch } from "../lib/api";
-import "./account.css";
+import PageShell from "../components/ui/PageShell";
+import Loading from "../components/ui/Loading";
+import ErrorState from "../components/ui/ErrorState";
+import EmptyState from "../components/ui/EmptyState";
 
 type AccountProfile = {
   id: string;
@@ -45,7 +61,16 @@ function Account() {
   const navigate = useNavigate();
   const { signOut } = useClerk();
   const { user } = useUser();
+  const { username: routeUsername } = useParams();
   const userId = user?.id ?? null;
+
+  // Own profile when on /account, or when the route username matches the
+  // signed-in user's username. Otherwise this is a read-only view of someone else.
+  const isOwnProfile =
+    !routeUsername ||
+    (!!user?.username &&
+      routeUsername.toLowerCase() === user.username.toLowerCase());
+
   const [profile, setProfile] = useState<AccountProfile | null>(null);
   const [posts, setPosts] = useState<UserPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -56,7 +81,8 @@ function Account() {
   const [form, setForm] = useState({
     displayName: "",
     username: "",
-    bio: ""
+    bio: "",
+    avatarUrl: ""
   });
 
   const applyProfile = (payload: AccountApiResponse) => {
@@ -77,25 +103,41 @@ function Account() {
     setForm({
       displayName: nextProfile.displayName ?? "",
       username: nextProfile.username ?? "",
-      bio: nextProfile.bio ?? ""
+      bio: nextProfile.bio ?? "",
+      avatarUrl: nextProfile.avatarUrl ?? ""
     });
   };
 
   useEffect(() => {
-    if (!userId) return;
+    // For own profile we need the Clerk user id; for others we need a username.
+    if (isOwnProfile && !userId) return;
+    if (!isOwnProfile && !routeUsername) return;
     let isMounted = true;
+
+    const profilePath = isOwnProfile
+      ? `/api/users/${userId}`
+      : `/api/users/by-username/${encodeURIComponent(routeUsername as string)}`;
+    const postsPath = isOwnProfile
+      ? `/api/users/${userId}/posts?limit=10`
+      : `/api/users/by-username/${encodeURIComponent(
+          routeUsername as string
+        )}/posts?limit=10`;
 
     async function loadData() {
       setError(null);
       setIsLoading(true);
       const [profileResponse, postsResponse] = await Promise.all([
-        authedFetch(`/api/users/${userId}`),
-        authedFetch(`/api/users/${userId}/posts?limit=10`)
+        authedFetch(profilePath),
+        authedFetch(postsPath)
       ]);
 
       if (!profileResponse.ok) {
         if (isMounted) {
-          setError("Could not load account details.");
+          setError(
+            profileResponse.status === 404
+              ? "That profile could not be found."
+              : "Could not load account details."
+          );
           setIsLoading(false);
         }
         return;
@@ -117,7 +159,7 @@ function Account() {
     return () => {
       isMounted = false;
     };
-  }, [authedFetch, userId]);
+  }, [authedFetch, userId, routeUsername, isOwnProfile]);
 
   async function handleProfileSave(event: FormEvent) {
     event.preventDefault();
@@ -129,7 +171,7 @@ function Account() {
       body: JSON.stringify({
         username: form.username.trim().toLowerCase(),
         display_name: form.displayName.trim(),
-        avatar_url: profile?.avatarUrl ?? null,
+        avatar_url: form.avatarUrl.trim() || null,
         bio: form.bio.trim()
       })
     });
@@ -158,174 +200,259 @@ function Account() {
     navigate("/sign-in", { replace: true });
   }
 
+  async function handleDeletePost(postId: string) {
+    if (!window.confirm("Delete this post? This can't be undone.")) return;
+    const res = await authedFetch(`/api/posts/${postId}`, { method: "DELETE" });
+    if (!res.ok) {
+      console.error("Failed to delete post", res.status);
+      return;
+    }
+    setPosts((current) => current.filter((p) => p.id !== postId));
+    setProfile((current) =>
+      current
+        ? {
+            ...current,
+            stats: {
+              ...current.stats,
+              postsCount: Math.max(0, current.stats.postsCount - 1)
+            }
+          }
+        : current
+    );
+  }
+
+  const initials = (profile?.displayName || profile?.username || "U")
+    .slice(0, 1)
+    .toUpperCase();
+
   return (
-    <div className="account-page">
-      <Header />
-      <main className="container account-content">
-        {isLoading ? <p>Loading account...</p> : null}
-        {error ? <p>{error}</p> : null}
-        {profile ? (
-          <div className="account-grid">
-            <section className="account-card account-summary">
-              <div className="account-summary-top">
-                {profile.avatarUrl ? (
-                  <img
-                    className="account-avatar"
-                    src={profile.avatarUrl}
-                    alt=""
-                  />
-                ) : (
-                  <div className="account-avatar account-avatar-fallback">
-                    {(profile.displayName || profile.username || "U")
-                      .slice(0, 1)
-                      .toUpperCase()}
-                  </div>
-                )}
-                <div>
-                  <h1 className="account-title">
-                    {profile.displayName || profile.username || "Your Account"}
-                  </h1>
-                  <p className="account-handle">
-                    {profile.username
-                      ? `@${profile.username}`
-                      : "No username set"}
-                  </p>
-                </div>
-              </div>
-
-              <p className="account-bio">{profile.bio || "No bio set."}</p>
-
-              <dl className="account-stats">
-                <div>
-                  <dt>Total Drinks</dt>
-                  <dd>{profile.stats.totalDrinks}</dd>
-                </div>
-                <div>
-                  <dt>Unique Bars</dt>
-                  <dd>{profile.stats.uniqueBarsVisited}</dd>
-                </div>
-                <div>
-                  <dt>Posts</dt>
-                  <dd>{profile.stats.postsCount}</dd>
-                </div>
-              </dl>
-
-              <div className="account-actions">
-                <button
-                  className="button muted-button"
-                  type="button"
-                  onClick={handleSignOut}
+    <PageShell maxWidth="md">
+      {isLoading ? <Loading label="Loading account…" /> : null}
+      {error && !isLoading ? <ErrorState message={error} /> : null}
+      {profile && !isLoading ? (
+        <Stack spacing={3}>
+          {/* Summary */}
+          <Card>
+            <CardContent>
+              <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
+                <Avatar
+                  src={profile.avatarUrl ?? undefined}
+                  sx={{ width: 64, height: 64 }}
                 >
-                  Sign Out
-                </button>
-              </div>
-            </section>
+                  {initials}
+                </Avatar>
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography variant="h1" sx={{ fontSize: "1.5rem" }} noWrap>
+                    {profile.displayName || profile.username || "Account"}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {profile.username ? `@${profile.username}` : "No username set"}
+                  </Typography>
+                </Box>
+              </Stack>
 
-            <section className="account-card">
-              <div className="account-edit-top">
-                <h2 className="account-section-title">Profile</h2>
-                <button
-                  className="button muted-button"
-                  type="button"
-                  onClick={() =>
-                    setIsEditingProfile((current) => !current)
-                  }
+              <Typography sx={{ mt: 2 }} color="text.secondary">
+                {profile.bio || "No bio yet."}
+              </Typography>
+
+              <Divider sx={{ my: 2 }} />
+
+              <Stack direction="row" spacing={4}>
+                <Box>
+                  <Typography variant="h2" sx={{ fontSize: "1.5rem" }}>
+                    {profile.stats.totalDrinks}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Total drinks
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography variant="h2" sx={{ fontSize: "1.5rem" }}>
+                    {profile.stats.uniqueBarsVisited}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Unique bars
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography variant="h2" sx={{ fontSize: "1.5rem" }}>
+                    {profile.stats.postsCount}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Posts
+                  </Typography>
+                </Box>
+              </Stack>
+
+              {isOwnProfile ? (
+                <Box sx={{ mt: 2 }}>
+                  <Button variant="outlined" onClick={handleSignOut}>
+                    Sign out
+                  </Button>
+                </Box>
+              ) : null}
+            </CardContent>
+          </Card>
+
+          {/* Edit form — own profile only */}
+          {isOwnProfile ? (
+            <Card>
+              <CardContent>
+                <Stack
+                  direction="row"
+                  sx={{
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    mb: 2
+                  }}
                 >
-                  {isEditingProfile ? "Lock" : "Edit Profile"}
-                </button>
-              </div>
-              <form className="account-form" onSubmit={handleProfileSave}>
-                <label>
-                  Display name
-                  <input
-                    value={form.displayName}
-                    onChange={(event) =>
-                      setForm((current) => ({
-                        ...current,
-                        displayName: event.target.value
-                      }))
-                    }
-                    maxLength={40}
-                    required
-                    disabled={!isEditingProfile || isSavingProfile}
-                  />
-                </label>
-
-                <label>
-                  Username
-                  <input
-                    value={form.username}
-                    onChange={(event) =>
-                      setForm((current) => ({
-                        ...current,
-                        username: event.target.value
-                      }))
-                    }
-                    maxLength={20}
-                    required
-                    disabled={!isEditingProfile || isSavingProfile}
-                  />
-                </label>
-
-                <label>
-                  Bio
-                  <textarea
-                    rows={3}
-                    value={form.bio}
-                    onChange={(event) =>
-                      setForm((current) => ({
-                        ...current,
-                        bio: event.target.value.slice(0, 50)
-                      }))
-                    }
-                    maxLength={50}
-                    disabled={!isEditingProfile || isSavingProfile}
-                  />
-                </label>
-
-                <div className="account-form-actions">
-                  <button
-                    type="submit"
-                    disabled={!isEditingProfile || isSavingProfile}
+                  <Typography variant="h2">Profile</Typography>
+                  <Button
+                    variant="text"
+                    onClick={() => setIsEditingProfile((current) => !current)}
                   >
-                    {isSavingProfile ? "Saving..." : "Save changes"}
-                  </button>
-                </div>
+                    {isEditingProfile ? "Cancel" : "Edit profile"}
+                  </Button>
+                </Stack>
 
-                {saveMessage ? (
-                  <p className="account-save-message">{saveMessage}</p>
-                ) : null}
-              </form>
-            </section>
+                <Box component="form" onSubmit={handleProfileSave}>
+                  <Stack spacing={2}>
+                    <TextField
+                      label="Display name"
+                      value={form.displayName}
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          displayName: event.target.value
+                        }))
+                      }
+                      slotProps={{ htmlInput: { maxLength: 40 } }}
+                      required
+                      disabled={!isEditingProfile || isSavingProfile}
+                    />
+                    <TextField
+                      label="Username"
+                      value={form.username}
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          username: event.target.value
+                        }))
+                      }
+                      slotProps={{ htmlInput: { maxLength: 20 } }}
+                      required
+                      disabled={!isEditingProfile || isSavingProfile}
+                    />
+                    <TextField
+                      label="Profile picture URL"
+                      placeholder="https://…"
+                      value={form.avatarUrl}
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          avatarUrl: event.target.value
+                        }))
+                      }
+                      disabled={!isEditingProfile || isSavingProfile}
+                    />
+                    <TextField
+                      label="Bio"
+                      value={form.bio}
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          bio: event.target.value.slice(0, 50)
+                        }))
+                      }
+                      helperText={`${form.bio.length}/50`}
+                      multiline
+                      minRows={3}
+                      slotProps={{ htmlInput: { maxLength: 50 } }}
+                      disabled={!isEditingProfile || isSavingProfile}
+                    />
+                    <Box>
+                      <Button
+                        type="submit"
+                        variant="contained"
+                        disabled={!isEditingProfile || isSavingProfile}
+                      >
+                        {isSavingProfile ? "Saving…" : "Save changes"}
+                      </Button>
+                    </Box>
+                    {saveMessage ? (
+                      <Alert
+                        severity={
+                          saveMessage.includes("Could not") ? "error" : "success"
+                        }
+                      >
+                        {saveMessage}
+                      </Alert>
+                    ) : null}
+                  </Stack>
+                </Box>
+              </CardContent>
+            </Card>
+          ) : null}
 
-            <section className="account-card">
-              <h2 className="account-section-title">Recent Posts</h2>
+          {/* Recent posts */}
+          <Card>
+            <CardContent>
+              <Typography variant="h2" sx={{ mb: 2 }}>
+                Recent posts
+              </Typography>
               {posts.length === 0 ? (
-                <p className="account-empty">No posts yet.</p>
+                <EmptyState
+                  title="No posts yet"
+                  description={
+                    isOwnProfile
+                      ? "Your published nights out will show up here."
+                      : "This user hasn't posted yet."
+                  }
+                />
               ) : (
-                <ul className="account-posts">
+                <Stack spacing={1.5}>
                   {posts.map((post) => (
-                    <li key={post.id} className="account-post-item">
-                      <p className="account-post-caption">
-                        {post.caption || "No caption"}
-                      </p>
-                      <p className="account-post-meta">
-                        {post.totalDrinks} drinks
-                        {post.publishedAt
-                          ? ` · ${new Date(
-                              post.publishedAt * 1000
-                            ).toLocaleDateString()}`
-                          : ""}
-                      </p>
-                    </li>
+                    <Box
+                      key={post.id}
+                      sx={{
+                        p: 2,
+                        border: 1,
+                        borderColor: "divider",
+                        borderRadius: 2,
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: 1
+                      }}
+                    >
+                      <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                        <Typography>{post.caption || "No caption"}</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {post.totalDrinks} drinks
+                          {post.publishedAt
+                            ? ` · ${new Date(
+                                post.publishedAt * 1000
+                              ).toLocaleDateString()}`
+                            : ""}
+                        </Typography>
+                      </Box>
+                      {isOwnProfile ? (
+                        <IconButton
+                          aria-label="Delete post"
+                          size="small"
+                          onClick={() => handleDeletePost(post.id)}
+                        >
+                          <DeleteOutlinedIcon fontSize="small" />
+                        </IconButton>
+                      ) : null}
+                    </Box>
                   ))}
-                </ul>
+                </Stack>
               )}
-            </section>
-          </div>
-        ) : null}
-      </main>
-    </div>
+            </CardContent>
+          </Card>
+        </Stack>
+      ) : null}
+    </PageShell>
   );
 }
 
