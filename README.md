@@ -13,3 +13,70 @@ Our Sequence Diagram:
 <img width="596" height="723" alt="image" src="https://github.com/user-attachments/assets/8e0880df-c011-4e29-b017-24e02e52b341" />
 
 
+
+## Deployment
+
+TipsyTracker is a monorepo deployed to **Cloudflare** via **GitHub Actions**:
+
+| Package | Stack | Cloudflare target | URL |
+| --- | --- | --- | --- |
+| `packages/backend` | Hono + Drizzle + D1 | Worker | `tipsytracker.org/api/*` |
+| `packages/frontend` | React + Vite (SPA) | Worker (static assets) | `tipsytracker.org` |
+
+### How it works
+
+Two workflows in `.github/workflows/` deploy on push to `main`, each path-filtered
+so a package only redeploys when its own files change. Both can also be triggered
+manually from the GitHub **Actions** tab (`workflow_dispatch`).
+
+- **Deploy Backend** — type-checks, applies pending D1 migrations against the
+  production database (`wrangler d1 migrations apply --remote`), syncs the Clerk
+  Worker secrets, then `wrangler deploy`.
+- **Deploy Frontend** — builds the Vite bundle with the `VITE_*` values baked in,
+  then `wrangler deploy`.
+
+### Required GitHub configuration
+
+Set these under **Settings → Secrets and variables → Actions**.
+
+**Secrets** (encrypted):
+
+| Name | Used by | Description |
+| --- | --- | --- |
+| `CLOUDFLARE_API_TOKEN` | both | Scoped Cloudflare API token (see below) |
+| `CLOUDFLARE_ACCOUNT_ID` | both | Your Cloudflare account ID |
+| `CLERK_SECRET_KEY` | backend | Clerk secret key (`sk_...`) — runtime Worker secret |
+| `CLERK_PUBLISHABLE_KEY` | backend | Clerk publishable key (`pk_...`) — runtime Worker secret |
+| `VITE_CLERK_PUBLISHABLE_KEY` | frontend | Clerk publishable key (`pk_...`) — compiled into the bundle at build time |
+
+**Variables** (optional, non-secret):
+
+| Name | Default | Description |
+| --- | --- | --- |
+| `VITE_API_BASE_URL` | `/api` | API base the SPA calls. Default keeps it same-origin, no CORS. |
+
+> The frontend Clerk key is a *publishable* key and is safe to expose in the
+> browser bundle. The backend `CLERK_SECRET_KEY` is sensitive and is only ever
+> set as a runtime Worker secret — never compiled into client code.
+
+### Cloudflare API token permissions
+
+Create a token at **Cloudflare Dashboard → My Profile → API Tokens → Create Token**
+(use "Create Custom Token") with the minimum scopes:
+
+- Account → **Workers Scripts** → Edit
+- Account → **D1** → Edit
+- Zone → **Workers Routes** → Edit (for the `tipsytracker.org` zone)
+
+Your **Account ID** is shown in the Cloudflare dashboard sidebar / Workers overview.
+
+### Local development
+
+Copy the example env files and fill in real values (the real files are gitignored):
+
+```bash
+cp packages/backend/.dev.vars.example   packages/backend/.dev.vars
+cp packages/frontend/.env.local.example packages/frontend/.env.local
+```
+
+Then run each package with `npm run dev` from its directory.

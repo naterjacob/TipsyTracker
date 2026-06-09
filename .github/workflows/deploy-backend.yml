@@ -1,0 +1,58 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/backend/**"
+      - ".github/workflows/deploy-backend.yml"
+  workflow_dispatch:
+
+# Prevent overlapping production deploys.
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Migrate + Deploy Worker
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/backend
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # Install at the repo root so npm workspaces resolves deps for all packages.
+      - name: Install dependencies
+        run: npm ci
+        working-directory: .
+
+      - name: Type-check
+        run: npm run build
+
+      - name: Apply D1 migrations (production)
+        run: npx wrangler d1 migrations apply tipsytracker-db --remote
+
+      # Push runtime secrets to the Worker before deploying.
+      # `secret put` is idempotent: it creates or overwrites the value.
+      - name: Sync Clerk secrets
+        run: |
+          printf '%s' "$CLERK_SECRET_KEY" | npx wrangler secret put CLERK_SECRET_KEY
+          printf '%s' "$CLERK_PUBLISHABLE_KEY" | npx wrangler secret put CLERK_PUBLISHABLE_KEY
+        env:
+          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+          CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
+
+      - name: Deploy Worker
+        run: npx wrangler deploy

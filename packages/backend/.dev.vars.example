@@ -1,0 +1,6 @@
+# Local development secrets for the backend Worker.
+# Copy to `.dev.vars` (gitignored) and fill in real values from your Clerk dashboard.
+# In production these are set as Worker secrets via GitHub Actions (see README).
+
+CLERK_PUBLISHABLE_KEY=pk_test_xxx
+CLERK_SECRET_KEY=sk_test_xxx
