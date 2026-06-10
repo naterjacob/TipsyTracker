@@ -55,7 +55,7 @@ export const listFeed = async (
   input: { limit: number; cursor: number | null }
 ) => {
   const query = input.cursor
-    ? `SELECT p.id, p.user_id, p.caption, p.status, p.total_drinks, p.created_at, p.published_at,
+    ? `SELECT p.id, p.user_id, p.caption, p.image_url, p.status, p.total_drinks, p.created_at, p.published_at,
               u.username, u.display_name, u.avatar_url, COUNT(s.id) AS bar_count
        FROM posts p
        JOIN users u ON u.id = p.user_id
@@ -64,7 +64,7 @@ export const listFeed = async (
        GROUP BY p.id
        ORDER BY p.published_at DESC
        LIMIT ?`
-    : `SELECT p.id, p.user_id, p.caption, p.status, p.total_drinks, p.created_at, p.published_at,
+    : `SELECT p.id, p.user_id, p.caption, p.image_url, p.status, p.total_drinks, p.created_at, p.published_at,
               u.username, u.display_name, u.avatar_url, COUNT(s.id) AS bar_count
        FROM posts p
        JOIN users u ON u.id = p.user_id
@@ -86,6 +86,7 @@ export const listFeed = async (
     id: row.id,
     userId: row.user_id,
     caption: row.caption,
+    imageUrl: row.image_url,
     totalDrinks: row.total_drinks,
     createdAt: row.created_at,
     publishedAt: row.published_at,
@@ -112,7 +113,7 @@ export const getPostDetails = async (
 ) => {
   const post = await db
     .prepare(
-      `SELECT p.id, p.user_id, p.caption, p.status, p.total_drinks, p.created_at, p.published_at,
+      `SELECT p.id, p.user_id, p.caption, p.image_url, p.status, p.total_drinks, p.created_at, p.published_at,
               u.username, u.display_name, u.avatar_url
        FROM posts p
        JOIN users u ON u.id = p.user_id
@@ -138,6 +139,7 @@ export const getPostDetails = async (
     id: post.id,
     userId: post.user_id,
     caption: post.caption,
+    imageUrl: post.image_url,
     status: post.status,
     totalDrinks: post.total_drinks,
     createdAt: post.created_at,
@@ -177,7 +179,7 @@ export const createDraftPost = async (
   const postId = crypto.randomUUID();
   await db
     .prepare(
-      "INSERT INTO posts (id, user_id, caption, status, total_drinks, created_at, published_at) VALUES (?, ?, NULL, 'draft', 0, ?, NULL)"
+      "INSERT INTO posts (id, user_id, caption, image_url, status, total_drinks, created_at, published_at) VALUES (?, ?, NULL, NULL, 'draft', 0, ?, NULL)"
     )
     .bind(postId, input.userId, input.now)
     .run();
@@ -195,6 +197,7 @@ export const updateDraftCaption = async (
     postId: string;
     userId: string;
     caption: string | null;
+    imageUrl?: string | null;
   }
 ) => {
   const ownerPost = await db
@@ -206,12 +209,14 @@ export const updateDraftCaption = async (
   if (!ownerPost) return null;
 
   await db
-    .prepare("UPDATE posts SET caption = ? WHERE id = ?")
-    .bind(input.caption, input.postId)
+    .prepare(
+      "UPDATE posts SET caption = ?, image_url = ? WHERE id = ?"
+    )
+    .bind(input.caption, input.imageUrl ?? null, input.postId)
     .run();
   return db
     .prepare(
-      "SELECT id, user_id, caption, status, total_drinks, created_at, published_at FROM posts WHERE id = ?"
+      "SELECT id, user_id, caption, image_url, status, total_drinks, created_at, published_at FROM posts WHERE id = ?"
     )
     .bind(input.postId)
     .first<PostRow>();
@@ -250,7 +255,7 @@ export const publishDraftPost = async (
     .run();
   const post = await db
     .prepare(
-      "SELECT id, user_id, caption, status, total_drinks, created_at, published_at FROM posts WHERE id = ?"
+      "SELECT id, user_id, caption, image_url, status, total_drinks, created_at, published_at FROM posts WHERE id = ?"
     )
     .bind(input.postId)
     .first<PostRow>();
@@ -277,18 +282,26 @@ export const deletePost = async (
 ) => {
   // Verify ownership first so we don't delete children of someone else's post.
   const owner = await db
-    .prepare("SELECT id FROM posts WHERE id = ? AND user_id = ? LIMIT 1")
+    .prepare(
+      "SELECT id FROM posts WHERE id = ? AND user_id = ? LIMIT 1"
+    )
     .bind(input.postId, input.userId)
     .first<{ id: string }>();
   if (!owner) return false;
 
   // Explicit child cleanup (D1 does not guarantee FK cascade enforcement).
-  await db.prepare("DELETE FROM likes WHERE post_id = ?").bind(input.postId).run();
+  await db
+    .prepare("DELETE FROM likes WHERE post_id = ?")
+    .bind(input.postId)
+    .run();
   await db
     .prepare("DELETE FROM comments WHERE post_id = ?")
     .bind(input.postId)
     .run();
-  await db.prepare("DELETE FROM stops WHERE post_id = ?").bind(input.postId).run();
+  await db
+    .prepare("DELETE FROM stops WHERE post_id = ?")
+    .bind(input.postId)
+    .run();
   const result = await db
     .prepare("DELETE FROM posts WHERE id = ? AND user_id = ?")
     .bind(input.postId, input.userId)
@@ -421,7 +434,9 @@ export const getUserIdByUsername = async (
   username: string
 ) => {
   const row = await db
-    .prepare("SELECT id FROM users WHERE username = ? COLLATE NOCASE")
+    .prepare(
+      "SELECT id FROM users WHERE username = ? COLLATE NOCASE"
+    )
     .bind(username.trim().toLowerCase())
     .first<{ id: string }>();
   return row?.id ?? null;
@@ -496,12 +511,12 @@ export const listUserPosts = async (
   }
 ) => {
   const query = input.cursor
-    ? `SELECT id, user_id, caption, status, total_drinks, created_at, published_at
+    ? `SELECT id, user_id, caption, image_url, status, total_drinks, created_at, published_at
        FROM posts
        WHERE user_id = ? AND status = 'published' AND published_at < ?
        ORDER BY published_at DESC
        LIMIT ?`
-    : `SELECT id, user_id, caption, status, total_drinks, created_at, published_at
+    : `SELECT id, user_id, caption, image_url, status, total_drinks, created_at, published_at
        FROM posts
        WHERE user_id = ? AND status = 'published'
        ORDER BY published_at DESC
@@ -511,11 +526,20 @@ export const listUserPosts = async (
   const result = input.cursor
     ? await statement
         .bind(input.userId, input.cursor, input.limit)
-        .all<PostRow>()
+        .all<Record<string, unknown>>()
     : await statement
         .bind(input.userId, input.limit)
-        .all<PostRow>();
-  const posts = result.results;
+        .all<Record<string, unknown>>();
+  const posts = result.results.map((row) => ({
+    id: row.id,
+    userId: row.user_id,
+    caption: row.caption,
+    imageUrl: row.image_url,
+    status: row.status,
+    totalDrinks: row.total_drinks,
+    createdAt: row.created_at,
+    publishedAt: row.published_at
+  }));
   const last = posts.at(-1);
   const nextCursor =
     posts.length === input.limit &&
@@ -726,6 +750,6 @@ export const getPostLikeStatus = async (
 
   return {
     likeCount: row?.like_count ?? 0,
-    likedByMe: Boolean(row?.liked_by_me),
+    likedByMe: Boolean(row?.liked_by_me)
   };
 };

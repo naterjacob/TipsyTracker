@@ -10,6 +10,7 @@ import EmptyState from "./ui/EmptyState";
 type FeedPost = {
   id: string;
   caption: string | null;
+  imageUrl: string | null;
   totalDrinks: number;
   barCount: number;
   publishedAt: number;
@@ -72,7 +73,7 @@ export default function Feed({ refreshToken }: FeedProps) {
   const myUsername = user?.username?.toLowerCase() ?? null;
 
   if (isLoading) {
-    return <Loading label="Loading feed…" />;
+    return <Loading label="Loading feed..." />;
   }
 
   if (error) {
@@ -83,17 +84,13 @@ export default function Feed({ refreshToken }: FeedProps) {
     return (
       <EmptyState
         title="No posts yet"
-        description="Be the first to log a night out. Tap “New post” to get started."
+        description='Be the first to log a night out. Tap "New post" to get started.'
       />
     );
   }
 
   return (
-    <Stack
-      component="section"
-      spacing={2}
-      aria-label="Feed posts"
-    >
+    <Stack component="section" spacing={2} aria-label="Feed posts">
       {posts.map((post) => (
         <Post
           key={post.id}
@@ -102,6 +99,7 @@ export default function Feed({ refreshToken }: FeedProps) {
           username={post.author.username}
           avatarUrl={post.author.avatarUrl}
           caption={post.caption}
+          imageUrl={post.imageUrl}
           barCount={post.barCount}
           totalDrinks={post.totalDrinks}
           publishedAt={post.publishedAt}

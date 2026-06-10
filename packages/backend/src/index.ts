@@ -9,25 +9,23 @@ import {
 } from "./db";
 import {
   addDraftStop,
+  createComment,
   createDraftPost,
   deleteDraftPost,
   deleteDraftStop,
-  deletePost,
+  getPostLikeStatus,
   getPostDetails,
-  getUserIdByUsername,
   getUserProfile,
+  likePost,
   listBars,
+  listComments,
   listFeed,
   listUserPosts,
   publishDraftPost,
   syncUser,
-  updateDraftCaption,
-  updateDraftStop,
-  createComment,
-  listComments,
-  likePost,
   unlikePost,
-  getPostLikeStatus
+  updateDraftCaption,
+  updateDraftStop
 } from "./dal";
 
 type AppEnv = {
@@ -40,7 +38,7 @@ const app = new Hono<AppEnv>();
 app.use(
   "/api/*",
   cors({
-    origin: "http://localhost:5173",
+    origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
     allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization"]
   })
@@ -177,12 +175,29 @@ app.patch("/api/posts/:id", async (c) => {
   const postId = c.req.param("id");
   const payload = (await c.req.json().catch(() => null)) as {
     caption?: string;
+    imageUrl?: string | null;
   } | null;
+
+  const imageUrl = payload?.imageUrl?.trim() || null;
+  if (
+    imageUrl &&
+    (!/^data:image\/(jpeg|png|gif|webp);base64,/.test(imageUrl) ||
+      imageUrl.length > 1_500_000)
+  ) {
+    return c.json(
+      {
+        error: "Bad Request",
+        message: "imageUrl must be a data image under 1.5 MB."
+      },
+      400
+    );
+  }
 
   const post = await updateDraftCaption(getDatabase(c), {
     postId,
     userId,
-    caption: payload?.caption ?? null
+    caption: payload?.caption ?? null,
+    imageUrl
   });
   if (!post) return c.json({ error: "Not Found" }, 404);
   return c.json({ post });
@@ -219,7 +234,7 @@ app.delete("/api/posts/:id", async (c) => {
   if (auth) return auth;
   const userId = c.get("userId");
   const postId = c.req.param("id");
-  const deleted = await deletePost(getDatabase(c), {
+  const deleted = await deleteDraftPost(getDatabase(c), {
     postId,
     userId
   });
@@ -323,32 +338,6 @@ app.get("/api/users/:id/posts", async (c) => {
   return c.json({ posts, nextCursor });
 });
 
-app.get("/api/users/by-username/:username", async (c) => {
-  const auth = await requireAuth(c, async () => {});
-  if (auth) return auth;
-  const username = c.req.param("username");
-  const userId = await getUserIdByUsername(getDatabase(c), username);
-  if (!userId) return c.json({ error: "Not Found" }, 404);
-  const profile = await getUserProfile(getDatabase(c), userId);
-  if (!profile) return c.json({ error: "Not Found" }, 404);
-  return c.json(profile);
-});
-
-app.get("/api/users/by-username/:username/posts", async (c) => {
-  const auth = await requireAuth(c, async () => {});
-  if (auth) return auth;
-  const username = c.req.param("username");
-  const userId = await getUserIdByUsername(getDatabase(c), username);
-  if (!userId) return c.json({ error: "Not Found" }, 404);
-  const limit = clampLimit(c.req.query("limit"));
-  const cursor = parseCursor(c.req.query("cursor"));
-  const { posts, nextCursor } = await listUserPosts(
-    getDatabase(c),
-    { userId, limit, cursor }
-  );
-  return c.json({ posts, nextCursor });
-});
-
 app.patch("/api/users/me/profile", requireAuth, async (c) => {
   const userId = c.get("userId");
   const body = await c.req.json<ProfileBody>();
@@ -402,13 +391,22 @@ app.patch("/api/users/me/profile", requireAuth, async (c) => {
   return c.json({ ok: true });
 });
 
+app.get("/api/posts/:id/comments", async (c) => {
+  const auth = await requireAuth(c, async () => {});
+  if (auth) return auth;
+
+  const postId = c.req.param("id");
+  const comments = await listComments(getDatabase(c), postId);
+
+  return c.json({ comments });
+});
+
 app.post("/api/posts/:id/comments", async (c) => {
   const auth = await requireAuth(c, async () => {});
   if (auth) return auth;
 
   const userId = c.get("userId");
   const postId = c.req.param("id");
-
   const payload = (await c.req.json().catch(() => null)) as {
     content?: string;
   } | null;
@@ -430,25 +428,23 @@ app.post("/api/posts/:id/comments", async (c) => {
     publishedAt: Math.floor(Date.now() / 1000)
   });
 
-  if (!comment) {
-    return c.json({ error: "Not Found" }, 404);
-  }
+  if (!comment) return c.json({ error: "Not Found" }, 404);
 
-  return c.json({ comment}, 201);
+  return c.json({ comment }, 201);
 });
 
-app.get("/api/posts/:id/comments", async (c) => {
+app.get("/api/posts/:id/likes", async (c) => {
   const auth = await requireAuth(c, async () => {});
   if (auth) return auth;
 
+  const userId = c.get("userId");
   const postId = c.req.param("id");
+  const likes = await getPostLikeStatus(getDatabase(c), {
+    postId,
+    userId
+  });
 
-  const comments = await listComments(
-    getDatabase(c),
-    postId
-  );
-
-  return c.json({ comments });
+  return c.json(likes);
 });
 
 app.post("/api/posts/:id/likes", async (c) => {
@@ -457,16 +453,13 @@ app.post("/api/posts/:id/likes", async (c) => {
 
   const userId = c.get("userId");
   const postId = c.req.param("id");
-
   const liked = await likePost(getDatabase(c), {
     postId,
     userId,
     createdAt: Math.floor(Date.now() / 1000)
   });
 
-  if (!liked) {
-    return c.json({ error: "Not Found" }, 404);
-  }
+  if (!liked) return c.json({ error: "Not Found" }, 404);
 
   return c.body(null, 204);
 });
@@ -477,31 +470,12 @@ app.delete("/api/posts/:id/likes", async (c) => {
 
   const userId = c.get("userId");
   const postId = c.req.param("id");
-
   await unlikePost(getDatabase(c), {
     postId,
-    userId,
+    userId
   });
 
   return c.body(null, 204);
-});
-
-app.get("/api/posts/:id/likes", async (c) => {
-  const auth = await requireAuth(c, async () => {});
-  if (auth) return auth;
-
-  const userId = c.get("userId");
-  const postId = c.req.param("id");
-
-  const likes = await getPostLikeStatus(
-    getDatabase(c),
-    {
-      postId,
-      userId,
-    }
-  );
-
-  return c.json(likes);
 });
 
 export default app;

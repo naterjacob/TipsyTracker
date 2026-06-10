@@ -30,6 +30,7 @@ export const posts = sqliteTable(
       .notNull()
       .references(() => users.id),
     caption: text("caption"),
+    imageUrl: text("image_url"),
     status: text("status", { enum: ["draft", "published"] })
       .notNull()
       .default("draft"),
@@ -86,9 +87,7 @@ export const comments = sqliteTable(
     commentsPostPublishedIdx: index(
       "idx_comments_post_published"
     ).on(table.postId, table.publishedAt),
-    commentsUserIdx: index("idx_comments_user").on(
-      table.userId
-    )
+    commentsUserIdx: index("idx_comments_user").on(table.userId)
   })
 );
 

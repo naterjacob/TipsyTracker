@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useUser, UserButton } from "@clerk/clerk-react";
-import {  useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   AppBar,
   Box,
@@ -21,15 +21,24 @@ import {
   TextField,
   Toolbar,
   Typography,
-  useMediaQuery
+  useMediaQuery,
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import PersonIcon from "@mui/icons-material/Person";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteOutlinedIcon from "@mui/icons-material/DeleteOutlined";
 import PlaceIcon from "@mui/icons-material/Place";
+import PhotoCameraIcon from "@mui/icons-material/PhotoCamera";
 import Loading from "./ui/Loading";
 import { useAuthedFetch } from "../lib/api";
+
+const maxPhotoBytes = 1_000_000;
+const allowedPhotoTypes = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+]);
 
 type HeaderProps = {
   onPostCreated?: () => void;
@@ -47,7 +56,7 @@ type DraftStopInput = {
   note: string;
 };
 
-export default function Header({ onPostCreated = () => { } }: HeaderProps) {
+export default function Header({ onPostCreated = () => {} }: HeaderProps) {
   const navigate = useNavigate();
   const authedFetch = useAuthedFetch();
   const { user } = useUser();
@@ -57,6 +66,8 @@ export default function Header({ onPostCreated = () => { } }: HeaderProps) {
   const [bars, setBars] = useState<Bar[]>([]);
   const [isLoadingBars, setIsLoadingBars] = useState(false);
   const [caption, setCaption] = useState("");
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [imageName, setImageName] = useState<string | null>(null);
   const [stops, setStops] = useState<DraftStopInput[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -86,12 +97,12 @@ export default function Header({ onPostCreated = () => { } }: HeaderProps) {
         current.length > 0
           ? current
           : [
-            {
-              barId: nextBars[0]?.id || "",
-              drinkCount: 1,
-              note: ""
-            }
-          ]
+              {
+                barId: nextBars[0]?.id || "",
+                drinkCount: 1,
+                note: "",
+              },
+            ]
       );
     }
 
@@ -103,15 +114,17 @@ export default function Header({ onPostCreated = () => { } }: HeaderProps) {
 
   const resetComposer = () => {
     setCaption("");
+    setImageUrl(null);
+    setImageName(null);
     setStops(
       bars[0]
         ? [
-          {
-            barId: bars[0].id,
-            drinkCount: 1,
-            note: ""
-          }
-        ]
+            {
+              barId: bars[0].id,
+              drinkCount: 1,
+              note: "",
+            },
+          ]
         : []
     );
     setErrorMessage(null);
@@ -128,8 +141,8 @@ export default function Header({ onPostCreated = () => { } }: HeaderProps) {
       {
         barId: bars[0]?.id || "",
         drinkCount: 1,
-        note: ""
-      }
+        note: "",
+      },
     ]);
   };
 
@@ -149,6 +162,33 @@ export default function Header({ onPostCreated = () => { } }: HeaderProps) {
     setStops((current) =>
       current.filter((_, stopIndex) => stopIndex !== index)
     );
+  };
+
+  const handlePhotoChange = (file: File | undefined) => {
+    if (!file) return;
+
+    if (!allowedPhotoTypes.has(file.type)) {
+      setErrorMessage("Choose a JPG, PNG, GIF, or WebP image.");
+      return;
+    }
+
+    if (file.size > maxPhotoBytes) {
+      setErrorMessage("Choose an image smaller than 1 MB.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result !== "string") {
+        setErrorMessage("Could not read that photo.");
+        return;
+      }
+      setImageUrl(reader.result);
+      setImageName(file.name);
+      setErrorMessage(null);
+    };
+    reader.onerror = () => setErrorMessage("Could not read that photo.");
+    reader.readAsDataURL(file);
   };
 
   async function handleCreatePost(event: FormEvent) {
@@ -173,7 +213,7 @@ export default function Header({ onPostCreated = () => { } }: HeaderProps) {
     setErrorMessage(null);
 
     const createResponse = await authedFetch("/api/posts", {
-      method: "POST"
+      method: "POST",
     });
     if (!createResponse.ok) {
       setIsSaving(false);
@@ -191,7 +231,6 @@ export default function Header({ onPostCreated = () => { } }: HeaderProps) {
       return;
     }
 
-    // If any later step fails, delete the orphaned draft so it doesn't linger.
     const failWith = async (message: string) => {
       await authedFetch(`/api/posts/${postId}`, { method: "DELETE" }).catch(
         () => {}
@@ -202,7 +241,10 @@ export default function Header({ onPostCreated = () => { } }: HeaderProps) {
 
     const captionResponse = await authedFetch(`/api/posts/${postId}`, {
       method: "PATCH",
-      body: JSON.stringify({ caption: caption.trim() || null })
+      body: JSON.stringify({
+        caption: caption.trim() || null,
+        imageUrl,
+      }),
     });
     if (!captionResponse.ok) {
       await failWith("Could not save caption.");
@@ -215,8 +257,8 @@ export default function Header({ onPostCreated = () => { } }: HeaderProps) {
         body: JSON.stringify({
           barId: stop.barId,
           drinkCount: stop.drinkCount,
-          note: stop.note.trim() || null
-        })
+          note: stop.note.trim() || null,
+        }),
       });
       if (!stopResponse.ok) {
         await failWith("Could not add one of the stops.");
@@ -225,7 +267,7 @@ export default function Header({ onPostCreated = () => { } }: HeaderProps) {
     }
 
     const publishResponse = await authedFetch(`/api/posts/${postId}/publish`, {
-      method: "POST"
+      method: "POST",
     });
 
     if (!publishResponse.ok) {
@@ -245,7 +287,7 @@ export default function Header({ onPostCreated = () => { } }: HeaderProps) {
         <Toolbar>
           <Typography
             component="button"
-            onClick={() => navigate(`/home`)}
+            onClick={() => navigate("/home")}
             aria-label="TipsyTracker home"
             sx={{
               border: "none",
@@ -292,20 +334,20 @@ export default function Header({ onPostCreated = () => { } }: HeaderProps) {
                   elements: {
                     userButtonAvatarBox: {
                       width: "48px",
-                      height: "48px"
+                      height: "48px",
                     },
                     userButtonTrigger: {
                       width: "48px",
-                      height: "48px"
-                    }
-                  }
+                      height: "48px",
+                    },
+                  },
                 }}
               >
                 <UserButton.MenuItems>
                   <UserButton.Action
                     label="Account"
                     labelIcon={<PersonIcon />}
-                    onClick={() => navigate(`/account`)}
+                    onClick={() => navigate("/account")}
                   />
                 </UserButton.MenuItems>
               </UserButton>
@@ -330,7 +372,7 @@ export default function Header({ onPostCreated = () => { } }: HeaderProps) {
           </DialogTitle>
           <DialogContent>
             {isLoadingBars ? (
-              <Loading label="Loading bars…" />
+              <Loading label="Loading bars..." />
             ) : (
               <Stack spacing={3} sx={{ pt: 2 }}>
                 <TextField
@@ -346,13 +388,69 @@ export default function Header({ onPostCreated = () => { } }: HeaderProps) {
                   helperText={`${caption.length}/240`}
                 />
 
+                <Stack spacing={1.5}>
+                  <Stack
+                    direction={{ xs: "column", sm: "row" }}
+                    spacing={1.5}
+                    sx={{ alignItems: { xs: "stretch", sm: "center" } }}
+                  >
+                    <Button
+                      component="label"
+                      variant="outlined"
+                      startIcon={<PhotoCameraIcon />}
+                    >
+                      Add photo
+                      <input
+                        hidden
+                        accept="image/png,image/jpeg,image/gif,image/webp"
+                        type="file"
+                        onChange={(event) => {
+                          handlePhotoChange(event.target.files?.[0]);
+                          event.target.value = "";
+                        }}
+                      />
+                    </Button>
+                    {imageUrl ? (
+                      <Button
+                        type="button"
+                        color="inherit"
+                        onClick={() => {
+                          setImageUrl(null);
+                          setImageName(null);
+                        }}
+                      >
+                        Remove photo
+                      </Button>
+                    ) : null}
+                    <Typography variant="caption" color="text.secondary">
+                      {imageName ?? "Optional JPG, PNG, GIF, or WebP under 1 MB"}
+                    </Typography>
+                  </Stack>
+
+                  {imageUrl ? (
+                    <Box
+                      component="img"
+                      src={imageUrl}
+                      alt=""
+                      sx={{
+                        width: "100%",
+                        maxHeight: 320,
+                        objectFit: "cover",
+                        borderRadius: 1,
+                        border: 1,
+                        borderColor: "divider",
+                      }}
+                    />
+                  ) : null}
+                </Stack>
+
                 <Box>
                   <Stack
                     direction="row"
                     sx={{
                       alignItems: "center",
                       justifyContent: "space-between",
-                      mb: 1
+                      mb: 1,
                     }}
                   >
                     <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
@@ -378,7 +476,7 @@ export default function Header({ onPostCreated = () => { } }: HeaderProps) {
                           borderColor: "divider",
                           borderRadius: 2,
                           p: 2,
-                          bgcolor: "background.default"
+                          bgcolor: "background.default",
                         }}
                       >
                         <Stack
@@ -386,7 +484,7 @@ export default function Header({ onPostCreated = () => { } }: HeaderProps) {
                           sx={{
                             alignItems: "center",
                             justifyContent: "space-between",
-                            mb: 1.5
+                            mb: 1.5,
                           }}
                         >
                           <Stack
@@ -426,7 +524,7 @@ export default function Header({ onPostCreated = () => { } }: HeaderProps) {
                               {bars.map((bar) => (
                                 <MenuItem key={bar.id} value={bar.id}>
                                   {bar.neighborhood
-                                    ? `${bar.name} · ${bar.neighborhood}`
+                                    ? `${bar.name} - ${bar.neighborhood}`
                                     : bar.name}
                                 </MenuItem>
                               ))}
@@ -496,7 +594,7 @@ export default function Header({ onPostCreated = () => { } }: HeaderProps) {
               variant="contained"
               disabled={isSaving || isLoadingBars || bars.length === 0}
             >
-              {isSaving ? "Posting…" : "Share post"}
+              {isSaving ? "Posting..." : "Share post"}
             </Button>
           </DialogActions>
         </Box>

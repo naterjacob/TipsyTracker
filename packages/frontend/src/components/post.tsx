@@ -25,6 +25,7 @@ type PostProps = {
   username: string | null;
   avatarUrl: string | null;
   caption: string | null;
+  imageUrl: string | null;
   barCount: number;
   totalDrinks: number;
   publishedAt: number;
@@ -40,6 +41,7 @@ export default function Post({
   username,
   avatarUrl,
   caption,
+  imageUrl,
   barCount,
   totalDrinks,
   publishedAt,
@@ -49,7 +51,8 @@ export default function Post({
   const initialsSource = displayName || username || "U";
   const initials = initialsSource.slice(0, 1).toUpperCase();
   const [showComments, setShowComments] = useState(false);
-  const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
+  const [menuAnchor, setMenuAnchor] =
+    useState<null | HTMLElement>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const navigate = useNavigate();
 
@@ -76,9 +79,13 @@ export default function Post({
     }
 
     async function fetchCommentCount() {
-      const res = await authedFetch(`/api/posts/${id}/comments`);
+      const res = await authedFetch(
+        `/api/posts/${id}/comments`
+      );
       if (!res.ok) return;
-      const data = (await res.json()) as { comments?: unknown[] };
+      const data = (await res.json()) as {
+        comments?: unknown[];
+      };
       if (!isMounted) return;
       setCommentCount(data.comments?.length ?? 0);
     }
@@ -92,34 +99,36 @@ export default function Post({
   }, [authedFetch, id]);
 
   async function handleLikeToggle() {
-  const method = likedByMe ? "DELETE" : "POST";
+    const method = likedByMe ? "DELETE" : "POST";
 
-  const res = await authedFetch(
-    `/api/posts/${id}/likes`,
-    {
-      method,
+    const res = await authedFetch(`/api/posts/${id}/likes`, {
+      method
+    });
+
+    if (!res.ok) {
+      console.error("Failed to toggle like");
+      return;
     }
-  );
 
-  if (!res.ok) {
-    console.error("Failed to toggle like");
-    return;
+    if (likedByMe) {
+      setLikedByMe(false);
+      setLikeCount((count) => Math.max(0, count - 1));
+    } else {
+      setLikedByMe(true);
+      setLikeCount((count) => count + 1);
+    }
   }
-
-  if (likedByMe) {
-    setLikedByMe(false);
-    setLikeCount((count) => Math.max(0, count - 1));
-  } else {
-    setLikedByMe(true);
-    setLikeCount((count) => count + 1);
-  }
-}
 
   async function handleDelete() {
     setMenuAnchor(null);
-    if (!window.confirm("Delete this post? This can't be undone.")) return;
+    if (
+      !window.confirm("Delete this post? This can't be undone.")
+    )
+      return;
     setIsDeleting(true);
-    const res = await authedFetch(`/api/posts/${id}`, { method: "DELETE" });
+    const res = await authedFetch(`/api/posts/${id}`, {
+      method: "DELETE"
+    });
     setIsDeleting(false);
     if (!res.ok) {
       console.error("Failed to delete post", res.status);
@@ -131,14 +140,18 @@ export default function Post({
   return (
     <Card component="article">
       <CardContent>
-        <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", mb: 1.5 }}>
+        <Stack
+          direction="row"
+          spacing={1.5}
+          sx={{ alignItems: "center", mb: 1.5 }}>
           <Avatar
             src={avatarUrl ?? undefined}
             sx={{
               cursor: username ? "pointer" : "default"
             }}
-            onClick={() => username && navigate(`/users/${username}`)}
-          >
+            onClick={() =>
+              username && navigate(`/users/${username}`)
+            }>
             {initials}
           </Avatar>
           <Box sx={{ minWidth: 0, flexGrow: 1 }}>
@@ -149,8 +162,11 @@ export default function Post({
                 underline="hover"
                 color="text.primary"
                 onClick={() => navigate(`/users/${username}`)}
-                sx={{ fontWeight: 700, display: "block", textAlign: "left" }}
-              >
+                sx={{
+                  fontWeight: 700,
+                  display: "block",
+                  textAlign: "left"
+                }}>
                 {displayName || username}
               </Link>
             ) : (
@@ -158,9 +174,13 @@ export default function Post({
                 {displayName || "Unknown user"}
               </Typography>
             )}
-            <Typography variant="caption" color="text.secondary">
+            <Typography
+              variant="caption"
+              color="text.secondary">
               {username ? `@${username}` : "No username"} ·{" "}
-              {new Date(publishedAt * 1000).toLocaleDateString()}
+              {new Date(
+                publishedAt * 1000
+              ).toLocaleDateString()}
             </Typography>
           </Box>
 
@@ -168,17 +188,19 @@ export default function Post({
             <>
               <IconButton
                 aria-label="Post options"
-                onClick={(event) => setMenuAnchor(event.currentTarget)}
-                disabled={isDeleting}
-              >
+                onClick={(event) =>
+                  setMenuAnchor(event.currentTarget)
+                }
+                disabled={isDeleting}>
                 <MoreVertIcon />
               </IconButton>
               <Menu
                 anchorEl={menuAnchor}
                 open={Boolean(menuAnchor)}
-                onClose={() => setMenuAnchor(null)}
-              >
-                <MenuItem onClick={handleDelete} sx={{ color: "error.main" }}>
+                onClose={() => setMenuAnchor(null)}>
+                <MenuItem
+                  onClick={handleDelete}
+                  sx={{ color: "error.main" }}>
                   Delete post
                 </MenuItem>
               </Menu>
@@ -186,23 +208,50 @@ export default function Post({
           ) : null}
         </Stack>
 
-        <Typography sx={{ mb: 2 }} color={caption ? "text.primary" : "text.secondary"}>
+        <Typography
+          sx={{ mb: 2 }}
+          color={caption ? "text.primary" : "text.secondary"}>
           {caption || "No caption"}
         </Typography>
 
+        {imageUrl ? (
+          <Box
+            component="img"
+            src={imageUrl}
+            alt=""
+            sx={{
+              display: "block",
+              width: "100%",
+              aspectRatio: "16 / 10",
+              objectFit: "cover",
+              borderRadius: 1,
+              mb: 2
+            }}
+          />
+        ) : null}
+
         <Stack
           direction="row"
-          sx={{ alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 1 }}
-        >
+          sx={{
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: 1
+          }}>
           <Stack spacing={1} direction="row">
             <Button
               variant="outlined"
               color="primary"
               onClick={handleLikeToggle}
-              aria-label={likedByMe ? "Unlike post" : "Like post"}
+              aria-label={
+                likedByMe ? "Unlike post" : "Like post"
+              }
               aria-pressed={likedByMe}
-              startIcon={<FavoriteIcon color={likedByMe ? "error" : "inherit"} />}
-            >
+              startIcon={
+                <FavoriteIcon
+                  color={likedByMe ? "error" : "inherit"}
+                />
+              }>
               {likeCount}
             </Button>
             <Button
@@ -211,26 +260,31 @@ export default function Post({
               onClick={() => setShowComments(true)}
               type="button"
               aria-label="View comments"
-              startIcon={<CommentIcon />}
-            >
+              startIcon={<CommentIcon />}>
               {commentCount}
             </Button>
           </Stack>
 
           <Stack direction="row" spacing={2}>
             <Box sx={{ textAlign: "center" }}>
-              <Typography sx={{ fontWeight: 700, lineHeight: 1 }}>
+              <Typography
+                sx={{ fontWeight: 700, lineHeight: 1 }}>
                 {barCount}
               </Typography>
-              <Typography variant="caption" color="text.secondary">
+              <Typography
+                variant="caption"
+                color="text.secondary">
                 Stops
               </Typography>
             </Box>
             <Box sx={{ textAlign: "center" }}>
-              <Typography sx={{ fontWeight: 700, lineHeight: 1 }}>
+              <Typography
+                sx={{ fontWeight: 700, lineHeight: 1 }}>
                 {totalDrinks}
               </Typography>
-              <Typography variant="caption" color="text.secondary">
+              <Typography
+                variant="caption"
+                color="text.secondary">
                 Drinks
               </Typography>
             </Box>
@@ -238,7 +292,10 @@ export default function Post({
         </Stack>
 
         {showComments && (
-          <Comment postId={id} onClose={() => setShowComments(false)} />
+          <Comment
+            postId={id}
+            onClose={() => setShowComments(false)}
+          />
         )}
       </CardContent>
     </Card>

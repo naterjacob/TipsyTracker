@@ -52,6 +52,7 @@ type AccountApiResponse = {
 type UserPost = {
   id: string;
   caption: string | null;
+  imageUrl: string | null;
   totalDrinks: number;
   publishedAt: number | null;
 };
@@ -69,15 +70,21 @@ function Account() {
   const isOwnProfile =
     !routeUsername ||
     (!!user?.username &&
-      routeUsername.toLowerCase() === user.username.toLowerCase());
+      routeUsername.toLowerCase() ===
+        user.username.toLowerCase());
 
-  const [profile, setProfile] = useState<AccountProfile | null>(null);
+  const [profile, setProfile] = useState<AccountProfile | null>(
+    null
+  );
   const [posts, setPosts] = useState<UserPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
-  const [saveMessage, setSaveMessage] = useState<string | null>(null);
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(
+    null
+  );
+  const [isEditingProfile, setIsEditingProfile] =
+    useState(false);
   const [form, setForm] = useState({
     displayName: "",
     username: "",
@@ -126,10 +133,11 @@ function Account() {
     async function loadData() {
       setError(null);
       setIsLoading(true);
-      const [profileResponse, postsResponse] = await Promise.all([
-        authedFetch(profilePath),
-        authedFetch(postsPath)
-      ]);
+      const [profileResponse, postsResponse] =
+        await Promise.all([
+          authedFetch(profilePath),
+          authedFetch(postsPath)
+        ]);
 
       if (!profileResponse.ok) {
         if (isMounted) {
@@ -143,9 +151,12 @@ function Account() {
         return;
       }
 
-      const profileData = (await profileResponse.json()) as AccountApiResponse;
+      const profileData =
+        (await profileResponse.json()) as AccountApiResponse;
       const postData = postsResponse.ok
-        ? ((await postsResponse.json()) as { posts?: UserPost[] })
+        ? ((await postsResponse.json()) as {
+            posts?: UserPost[];
+          })
         : { posts: [] };
 
       if (isMounted) {
@@ -166,15 +177,18 @@ function Account() {
 
     setSaveMessage(null);
     setIsSavingProfile(true);
-    const response = await authedFetch("/api/users/me/profile", {
-      method: "PATCH",
-      body: JSON.stringify({
-        username: form.username.trim().toLowerCase(),
-        display_name: form.displayName.trim(),
-        avatar_url: form.avatarUrl.trim() || null,
-        bio: form.bio.trim()
-      })
-    });
+    const response = await authedFetch(
+      "/api/users/me/profile",
+      {
+        method: "PATCH",
+        body: JSON.stringify({
+          username: form.username.trim().toLowerCase(),
+          display_name: form.displayName.trim(),
+          avatar_url: form.avatarUrl.trim() || null,
+          bio: form.bio.trim()
+        })
+      }
+    );
     setIsSavingProfile(false);
 
     if (!response.ok) {
@@ -183,7 +197,9 @@ function Account() {
     }
 
     if (userId) {
-      const refreshed = await authedFetch(`/api/users/${userId}`);
+      const refreshed = await authedFetch(
+        `/api/users/${userId}`
+      );
       if (refreshed.ok) {
         const refreshedData =
           (await refreshed.json()) as AccountApiResponse;
@@ -201,52 +217,79 @@ function Account() {
   }
 
   async function handleDeletePost(postId: string) {
-    if (!window.confirm("Delete this post? This can't be undone.")) return;
-    const res = await authedFetch(`/api/posts/${postId}`, { method: "DELETE" });
+    if (
+      !window.confirm("Delete this post? This can't be undone.")
+    )
+      return;
+    const res = await authedFetch(`/api/posts/${postId}`, {
+      method: "DELETE"
+    });
     if (!res.ok) {
       console.error("Failed to delete post", res.status);
       return;
     }
-    setPosts((current) => current.filter((p) => p.id !== postId));
+    setPosts((current) =>
+      current.filter((p) => p.id !== postId)
+    );
     setProfile((current) =>
       current
         ? {
             ...current,
             stats: {
               ...current.stats,
-              postsCount: Math.max(0, current.stats.postsCount - 1)
+              postsCount: Math.max(
+                0,
+                current.stats.postsCount - 1
+              )
             }
           }
         : current
     );
   }
 
-  const initials = (profile?.displayName || profile?.username || "U")
+  const initials = (
+    profile?.displayName ||
+    profile?.username ||
+    "U"
+  )
     .slice(0, 1)
     .toUpperCase();
 
   return (
     <PageShell maxWidth="md">
       {isLoading ? <Loading label="Loading account…" /> : null}
-      {error && !isLoading ? <ErrorState message={error} /> : null}
+      {error && !isLoading ? (
+        <ErrorState message={error} />
+      ) : null}
       {profile && !isLoading ? (
         <Stack spacing={3}>
           {/* Summary */}
           <Card>
             <CardContent>
-              <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
+              <Stack
+                direction="row"
+                spacing={2}
+                sx={{ alignItems: "center" }}>
                 <Avatar
                   src={profile.avatarUrl ?? undefined}
-                  sx={{ width: 64, height: 64 }}
-                >
+                  sx={{ width: 64, height: 64 }}>
                   {initials}
                 </Avatar>
                 <Box sx={{ minWidth: 0 }}>
-                  <Typography variant="h1" sx={{ fontSize: "1.5rem" }} noWrap>
-                    {profile.displayName || profile.username || "Account"}
+                  <Typography
+                    variant="h1"
+                    sx={{ fontSize: "1.5rem" }}
+                    noWrap>
+                    {profile.displayName ||
+                      profile.username ||
+                      "Account"}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {profile.username ? `@${profile.username}` : "No username set"}
+                  <Typography
+                    variant="body2"
+                    color="text.secondary">
+                    {profile.username
+                      ? `@${profile.username}`
+                      : "No username set"}
                   </Typography>
                 </Box>
               </Stack>
@@ -259,26 +302,38 @@ function Account() {
 
               <Stack direction="row" spacing={4}>
                 <Box>
-                  <Typography variant="h2" sx={{ fontSize: "1.5rem" }}>
+                  <Typography
+                    variant="h2"
+                    sx={{ fontSize: "1.5rem" }}>
                     {profile.stats.totalDrinks}
                   </Typography>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography
+                    variant="caption"
+                    color="text.secondary">
                     Total drinks
                   </Typography>
                 </Box>
                 <Box>
-                  <Typography variant="h2" sx={{ fontSize: "1.5rem" }}>
+                  <Typography
+                    variant="h2"
+                    sx={{ fontSize: "1.5rem" }}>
                     {profile.stats.uniqueBarsVisited}
                   </Typography>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography
+                    variant="caption"
+                    color="text.secondary">
                     Unique bars
                   </Typography>
                 </Box>
                 <Box>
-                  <Typography variant="h2" sx={{ fontSize: "1.5rem" }}>
+                  <Typography
+                    variant="h2"
+                    sx={{ fontSize: "1.5rem" }}>
                     {profile.stats.postsCount}
                   </Typography>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography
+                    variant="caption"
+                    color="text.secondary">
                     Posts
                   </Typography>
                 </Box>
@@ -286,7 +341,9 @@ function Account() {
 
               {isOwnProfile ? (
                 <Box sx={{ mt: 2 }}>
-                  <Button variant="outlined" onClick={handleSignOut}>
+                  <Button
+                    variant="outlined"
+                    onClick={handleSignOut}>
                     Sign out
                   </Button>
                 </Box>
@@ -304,18 +361,22 @@ function Account() {
                     justifyContent: "space-between",
                     alignItems: "center",
                     mb: 2
-                  }}
-                >
+                  }}>
                   <Typography variant="h2">Profile</Typography>
                   <Button
                     variant="text"
-                    onClick={() => setIsEditingProfile((current) => !current)}
-                  >
-                    {isEditingProfile ? "Cancel" : "Edit profile"}
+                    onClick={() =>
+                      setIsEditingProfile((current) => !current)
+                    }>
+                    {isEditingProfile
+                      ? "Cancel"
+                      : "Edit profile"}
                   </Button>
                 </Stack>
 
-                <Box component="form" onSubmit={handleProfileSave}>
+                <Box
+                  component="form"
+                  onSubmit={handleProfileSave}>
                   <Stack spacing={2}>
                     <TextField
                       label="Display name"
@@ -326,9 +387,13 @@ function Account() {
                           displayName: event.target.value
                         }))
                       }
-                      slotProps={{ htmlInput: { maxLength: 40 } }}
+                      slotProps={{
+                        htmlInput: { maxLength: 40 }
+                      }}
                       required
-                      disabled={!isEditingProfile || isSavingProfile}
+                      disabled={
+                        !isEditingProfile || isSavingProfile
+                      }
                     />
                     <TextField
                       label="Username"
@@ -339,9 +404,13 @@ function Account() {
                           username: event.target.value
                         }))
                       }
-                      slotProps={{ htmlInput: { maxLength: 20 } }}
+                      slotProps={{
+                        htmlInput: { maxLength: 20 }
+                      }}
                       required
-                      disabled={!isEditingProfile || isSavingProfile}
+                      disabled={
+                        !isEditingProfile || isSavingProfile
+                      }
                     />
                     <TextField
                       label="Profile picture URL"
@@ -353,7 +422,9 @@ function Account() {
                           avatarUrl: event.target.value
                         }))
                       }
-                      disabled={!isEditingProfile || isSavingProfile}
+                      disabled={
+                        !isEditingProfile || isSavingProfile
+                      }
                     />
                     <TextField
                       label="Bio"
@@ -367,24 +438,32 @@ function Account() {
                       helperText={`${form.bio.length}/50`}
                       multiline
                       minRows={3}
-                      slotProps={{ htmlInput: { maxLength: 50 } }}
-                      disabled={!isEditingProfile || isSavingProfile}
+                      slotProps={{
+                        htmlInput: { maxLength: 50 }
+                      }}
+                      disabled={
+                        !isEditingProfile || isSavingProfile
+                      }
                     />
                     <Box>
                       <Button
                         type="submit"
                         variant="contained"
-                        disabled={!isEditingProfile || isSavingProfile}
-                      >
-                        {isSavingProfile ? "Saving…" : "Save changes"}
+                        disabled={
+                          !isEditingProfile || isSavingProfile
+                        }>
+                        {isSavingProfile
+                          ? "Saving…"
+                          : "Save changes"}
                       </Button>
                     </Box>
                     {saveMessage ? (
                       <Alert
                         severity={
-                          saveMessage.includes("Could not") ? "error" : "success"
-                        }
-                      >
+                          saveMessage.includes("Could not")
+                            ? "error"
+                            : "success"
+                        }>
                         {saveMessage}
                       </Alert>
                     ) : null}
@@ -422,11 +501,28 @@ function Account() {
                         display: "flex",
                         alignItems: "flex-start",
                         gap: 1
-                      }}
-                    >
+                      }}>
+                      {post.imageUrl ? (
+                        <Box
+                          component="img"
+                          src={post.imageUrl}
+                          alt=""
+                          sx={{
+                            width: 72,
+                            height: 72,
+                            borderRadius: 1,
+                            objectFit: "cover",
+                            flexShrink: 0
+                          }}
+                        />
+                      ) : null}
                       <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                        <Typography>{post.caption || "No caption"}</Typography>
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography>
+                          {post.caption || "No caption"}
+                        </Typography>
+                        <Typography
+                          variant="caption"
+                          color="text.secondary">
                           {post.totalDrinks} drinks
                           {post.publishedAt
                             ? ` · ${new Date(
@@ -439,8 +535,9 @@ function Account() {
                         <IconButton
                           aria-label="Delete post"
                           size="small"
-                          onClick={() => handleDeletePost(post.id)}
-                        >
+                          onClick={() =>
+                            handleDeletePost(post.id)
+                          }>
                           <DeleteOutlinedIcon fontSize="small" />
                         </IconButton>
                       ) : null}
